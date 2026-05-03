@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Pricing Suite</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh;font-size:13px;color:#1a1a2e}
+.header{background:#0f2942;display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;position:sticky;top:0;z-index:100}
+.header-logo{display:flex;align-items:center;gap:10px}
+.logo-box{width:32px;height:32px;background:#1e4a8a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white}
+.logo-text h1{font-size:13px;font-weight:600;color:white}
+.logo-text p{font-size:9px;color:#7a9cc0;letter-spacing:1px;text-transform:uppercase}
+.header-tabs{display:flex;gap:6px}
+.tab-btn{padding:7px 18px;border-radius:6px;font-size:13px;cursor:pointer;border:1px solid transparent;color:white;background:transparent;transition:all .15s}
+.tab-btn.active{background:#111827;border-color:#374151}
+.tab-btn:not(.active){border-color:#2d4a6a;color:#a0b4c8}
+.tab-btn:not(.active):hover{background:#1a3550}
+.header-info{font-size:12px;color:#7a9cc0}
+.main{padding:16px;min-height:calc(100vh - 52px)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.builder-layout{display:grid;grid-template-columns:400px 1fr;gap:14px}
+.card{background:white;border-radius:8px;padding:18px;margin-bottom:10px;border:1px solid #e5e9f0}
+.card:last-child{margin-bottom:0}
+.card-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#6b7280;margin-bottom:12px}
+.form-row{display:grid;gap:10px;margin-bottom:10px}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-label{font-size:11px;color:#6b7280}
+.form-label.auto{color:#059669}
+.form-label.blue{color:#3b82f6}
+input[type=text],input[type=number],select{border:1px solid #d1d5db;border-radius:5px;padding:7px 10px;font-size:13px;color:#1a1a2e;background:white;outline:none;transition:border-color .15s;width:100%}
+input:focus,select:focus{border-color:#3b82f6}
+input::placeholder{color:#9ca3af}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+input[readonly]{background:#f9fafb;color:#6b7280}
+.info-pill{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:11px;color:#1d4ed8;margin-top:4px}
+.info-pill .dot{width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0}
+.info-pill.orange{background:#fff7ed;border-color:#fed7aa;color:#c2410c}
+.info-pill.orange .dot{background:#f97316}
+.slider-wrap{display:flex;align-items:center;gap:8px}
+.slider-wrap input[type=range]{flex:1;accent-color:#0f2942}
+.sval{font-size:12px;font-weight:600;min-width:70px;color:#0f2942}
+.btn-compute{width:100%;padding:13px;background:#0f2942;border:none;border-radius:6px;color:white;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s;margin-top:4px}
+.btn-compute:hover{background:#1a3d5c}
+.btn-compute:disabled{background:#6b7280;cursor:not-allowed}
+.results-panel{background:white;border-radius:8px;border:1px solid #e5e9f0;min-height:500px;display:flex;flex-direction:column}
+.results-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#6b7280;text-align:center;padding:40px;gap:12px}
+.results-empty .icon{font-size:40px}
+.results-empty p{font-size:13px;line-height:1.6;max-width:300px}
+.results-empty .sub{font-size:11px;color:#9ca3af}
+.results-body{padding:20px;display:none;overflow-y:auto;flex:1}
+.r-section{margin-bottom:18px}
+.r-section h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #f3f4f6}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.kpi-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.kpi-box{background:#f8fafc;border:1px solid #e5e9f0;border-radius:6px;padding:10px;text-align:center}
+.kpi-box .kv{font-size:18px;font-weight:600;color:#0f2942}
+.kpi-box .kl{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.neg-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.neg-card{border:1px solid #e5e9f0;border-radius:6px;padding:10px}
+.neg-card .nl{font-size:10px;font-weight:600;text-transform:uppercase;color:#6b7280}
+.neg-card .np{font-size:17px;font-weight:600;margin:3px 0}
+.neg-card .nn{font-size:11px;color:#9ca3af}
+.neg-card.floor .np{color:#059669}
+.neg-card.target{border-color:#3b82f6;background:#eff6ff}
+.neg-card.target .np{color:#2563eb}
+.neg-card.ceil .np{color:#dc2626}
+.bdown{width:100%;border-collapse:collapse;font-size:12px}
+.bdown td{padding:5px 8px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+.bdown td:first-child{color:#6b7280;width:52%}
+.bdown td:last-child{font-weight:500;text-align:right}
+.bdown tr:last-child td{border-bottom:none;background:#f0fdf4}
+.bdown-sub{display:block;font-size:10px;color:#9ca3af;font-weight:400;margin-top:2px;font-family:monospace;letter-spacing:.01em}
+.bdown-hdr td{background:#f0f2f5!important;font-size:10px!important;font-weight:700!important;text-transform:uppercase;letter-spacing:.6px;color:#374151!important;padding:5px 8px!important;border-bottom:1px solid #e5e9f0!important}
+.bdown-def td{background:#fafbfc}
+.bdown-def td:first-child{font-family:monospace;font-size:11px;color:#0f2942;font-weight:600}
+.bdown-def td:last-child{font-size:11px;color:#374151;font-weight:400}
+.scoreboard{display:flex;flex-direction:column;gap:7px}
+.srow{display:flex;align-items:center;gap:8px}
+.slabel{font-size:11px;color:#374151;min-width:140px}
+.sbar-wrap{flex:1;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden}
+.sbar{height:100%;background:#0f2942;border-radius:3px;transition:width .5s}
+.sval2{font-size:11px;font-weight:600;min-width:30px;text-align:right;color:#0f2942}
+.swhy{font-size:10px;color:#9ca3af;min-width:0;flex:1}
+.cs-list{display:flex;flex-direction:column;gap:7px}
+.cs-item{display:flex;align-items:flex-start;justify-content:space-between;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:9px 12px;gap:10px}
+.cs-name{font-size:12px;font-weight:500;color:#065f46}
+.cs-type{font-size:10px;color:#9ca3af}
+.cs-reason{font-size:11px;color:#6b7280;margin-top:2px}
+.cs-tariff{font-size:11px;font-weight:600;color:#059669;background:white;border:1px solid #bbf7d0;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.ai-box{border:1px solid #e5e9f0;border-radius:8px;overflow:hidden;margin-top:10px;display:inline-block;width:100%}
+.btn-ai{display:flex;align-items:center;gap:6px;padding:8px 16px;background:#7c3aed;border:none;border-radius:5px;color:white;font-size:12px;cursor:pointer;font-weight:500;width:fit-content;margin-bottom:10px}
+.btn-ai:hover{background:#6d28d9}
+.btn-ai:disabled{background:#9ca3af;cursor:not-allowed}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.lbar{height:3px;background:#e5e9f0;border-radius:2px;overflow:hidden;margin-bottom:14px}
+.lbar-inner{height:100%;background:#3b82f6;border-radius:2px;animation:lbar 1.5s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes lbar{0%{width:0;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0;margin-left:100%}}
+.filters-bar{background:white;border-radius:8px;padding:12px 18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;border:1px solid #e5e9f0;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column;gap:3px;min-width:120px}
+.fg .fl{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.filters-bar select{padding:5px 28px 5px 8px;font-size:12px}
+.fr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.rcount{font-size:12px;color:#6b7280}
+.btn-sec{display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #d1d5db;border-radius:5px;background:white;font-size:12px;cursor:pointer;color:#374151}
+.btn-sec:hover{background:#f9fafb}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.kpi-card{background:white;border:1px solid #e5e9f0;border-radius:8px;padding:14px 16px}
+.kpi-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:7px}
+.kpi-val{font-size:24px;font-weight:600;color:#0f2942;line-height:1}
+.kpi-card.warn .kpi-val{color:#dc2626}
+.kpi-sub{font-size:11px;margin-top:3px;color:#6b7280}
+.kpi-card.warn .kpi-sub{color:#dc2626}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.chart-card{background:white;border:1px solid #e5e9f0;border-radius:8px;padding:14px}
+.chart-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:10px}
+.chart-wrap{position:relative;height:180px}
+.no-deals-banner{background:#fef9ec;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:10px;display:none;align-items:center;gap:8px}
+.no-deals-banner.visible{display:flex}
+.chart-empty-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(248,250,252,0.88);border-radius:4px;font-size:11px;color:#9ca3af;gap:3px;pointer-events:none;z-index:2}
+.chart-empty-overlay .eo-icon{font-size:20px}
+.tcard{background:white;border:1px solid #e5e9f0;border-radius:8px;margin-bottom:12px;overflow:hidden}
+.thead2{padding:12px 16px 0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;border-bottom:1px solid #e5e9f0}
+tbody td{padding:9px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#f9fafb}
+.ins-card{background:white;border:1px solid #e5e9f0;border-radius:8px;padding:14px;margin-bottom:12px}
+.ins-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ins-ttl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280}
+.btn-gen{padding:7px 16px;background:#0f2942;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-weight:500}
+.btn-gen:hover{background:#1a3d5c}
+.btn-gen:disabled{background:#9ca3af;cursor:not-allowed}
+.ins-body{font-size:12px;color:#374151;display:inline-block;width:100%}
+.ins-body.empty{color:#9ca3af;font-style:italic;text-align:center;padding:16px;display:block}
+/* AI Action Cards */
+.ai-actions{display:flex;flex-direction:column;gap:8px}
+.ai-action-card{border-radius:7px;padding:11px 14px;background:#f8fafc;border:1px solid #e5e9f0;border-left:3px solid #0f2942}
+.ai-action-card:nth-child(2){border-left-color:#2563eb}
+.ai-action-card:nth-child(3){border-left-color:#059669}
+.ai-action-title{font-weight:700;font-size:12px;color:#0f2942;margin-bottom:5px}
+.ai-action-body{font-size:12px;color:#374151;line-height:1.55}
+/* AI Explanation in builder */
+.ai-explain-card{padding:12px 14px;background:#f8fafc}
+.ai-driver{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #eef0f3}
+.ai-driver:last-of-type{border-bottom:none;padding-bottom:0}
+.ai-driver-rank{width:20px;height:20px;border-radius:50%;background:#0f2942;color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ai-driver-text{font-size:12px;color:#374151;line-height:1.5}
+.ai-driver-label{font-weight:700;color:#0f2942}
+.ai-conclusion{background:#0f2942;color:white;padding:9px 14px;font-size:12px;line-height:1.55}
+.ai-conclusion strong{color:#93c5fd}
+/* Deal selection */
+.deal-sel-bar{display:none}
+tbody tr.deal-selectable:hover td{background:#f9fafb}
+.dealpanel{background:white;border:1px solid #e5e9f0;border-radius:8px;padding:14px;margin-bottom:12px}
+.dealhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.btn-clr{padding:5px 12px;border:1px solid #fca5a5;background:#fff;border-radius:5px;font-size:11px;color:#dc2626;cursor:pointer}
+.btn-clr:hover{background:#fef2f2}
+.clear-confirm{display:none;align-items:center;gap:8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 12px;font-size:12px;color:#dc2626}
+.clear-confirm.show{display:flex}
+.btn-confirm-yes{padding:3px 10px;background:#dc2626;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600}
+.btn-confirm-yes:hover{background:#b91c1c}
+.btn-confirm-no{padding:3px 10px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:4px;font-size:11px;cursor:pointer}
+.btn-confirm-no:hover{background:#f9fafb}
+.btn-legend{font-size:11px;padding:3px 9px;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;color:#374151;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-legend:hover{background:#e5e9f0}
+.legend-panel{background:#f8fafc;border:1px solid #e5e9f0;border-radius:6px;padding:12px 14px;margin-bottom:10px;font-size:12px}
+.legend-panel table{width:100%;border-collapse:collapse}
+.legend-panel td{padding:5px 8px;border-bottom:1px solid #f0f2f5;vertical-align:top}
+.legend-panel td:first-child{font-weight:600;color:#0f2942;width:38%;white-space:nowrap}
+.legend-panel td:last-child{color:#374151;line-height:1.5}
+.legend-panel tr:last-child td{border-bottom:none}
+.cs-table{width:100%;border-collapse:collapse;font-size:12px}
+.cs-table th{background:#f0f2f5;padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;border-bottom:2px solid #e5e9f0}
+.cs-table td{padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.cs-table tr:last-child td{border-bottom:none}
+.cs-table tr:hover td{background:#fafbfc}
+.cs-sku{font-weight:700;color:#0f2942}
+.cs-type-badge{font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:10px;padding:1px 7px;white-space:nowrap;display:inline-block;margin-top:2px}
+.cs-bundle-good{color:#059669;font-weight:600}
+.cs-bundle-disc{color:#7c3aed;font-weight:600}
+.seg-P{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:#ede9fe;color:#5b21b6}
+.seg-S{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:#dbeafe;color:#1e40af}
+.seg-C{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:#fce7f3;color:#9d174d}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-box">AI</div>
+    <div class="logo-text"><h1>AI Pricing Suite</h1><p>Finance &amp; Sales Enablement</p></div>
+  </div>
+  <div class="header-tabs">
+    <button class="tab-btn active" onclick="switchTab('builder',this)">Pricing Deal Builder</button>
+    <button class="tab-btn" onclick="switchTab('dashboard',this)">Dashboard</button>
+  </div>
+  <div class="header-info"><span id="rec-count">—</span> customers &nbsp;·&nbsp; <span id="deal-count">0</span> deals</div>
+</div>
+
+<div class="main">
+<!-- TAB 1 BUILDER -->
+<div id="tab-builder" class="tab-panel active">
+  <div class="builder-layout">
+    <div>
+      <div class="card">
+        <div class="card-label">Client Info</div>
+        <div class="form-row c2">
+          <div class="form-group">
+            <label class="form-label">Client Name</label>
+            <input type="text" id="f-cust-name" placeholder="e.g. Acme Corp" oninput="onClientInput()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Region</label>
+            <select id="f-reg" onchange="onRegionChange()">
+              <option value="">— Select —</option>
+              <option value="N_AMERICA">N_AMERICA</option>
+              <option value="EMENA">EMENA</option>
+              <option value="APAC">APAC</option>
+              <option value="CIS">CIS</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row c3">
+          <div class="form-group" style="grid-column:1/3">
+            <label class="form-label">Customer Segment <span style="color:#9ca3af;font-weight:400;font-size:10px">(free text — drives pricing tier)</span></label>
+            <input type="text" id="f-seg" list="seg-suggestions" placeholder="e.g. New Customer, Returning Customer…" oninput="onSegInput()">
+            <datalist id="seg-suggestions">
+              <option value="New Customer">
+              <option value="Returning Customer">
+              <option value="Premium Customer">
+              <option value="Corporate">
+              <option value="Retail">
+              <option value="Wholesale">
+              <option value="SMB">
+              <option value="Enterprise">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quantity</label>
+            <input type="number" id="f-qty" value="100" min="1" max="2000">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label auto">Pricing Tier (resolved)</label>
+            <input type="text" id="f-tier" readonly placeholder="— enter segment above →" style="background:#f0fdf4;color:#065f46;border-color:#bbf7d0;font-weight:500">
+          </div>
+        </div>
+        <div id="cust-pill-row" style="display:none;margin-top:4px">
+          <div class="info-pill"><span class="dot"></span><span id="cust-pill-txt">—</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Product Level &amp; Tariff Details</div>
+        <div class="form-row c2">
+          <div class="form-group">
+            <label class="form-label">Product</label>
+            <select id="f-prod" onchange="onProdChange()">
+              <option value="">Select...</option>
+              <option>Smartphone</option><option>Laptop</option><option>TV</option>
+              <option>Air Conditioner</option><option>Accessory</option><option>Networking Equipment</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subgroup / SKU</label>
+            <select id="f-sub" onchange="onSubChange()"><option value="">Select...</option></select>
+          </div>
+        </div>
+        <div class="form-row c2">
+          <div class="form-group">
+            <label class="form-label auto">Base Cost $ (auto)</label>
+            <input type="number" id="f-cost" readonly placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label blue">Tariff (auto / override)</label>
+            <input type="number" id="f-tariff" placeholder="0.0000" step="0.0001" oninput="onTariffEdit()">
+          </div>
+        </div>
+        <div id="tariff-ovr" style="display:none">
+          <div class="info-pill orange"><span class="dot"></span>Tariff manually overridden — auto-calc disabled</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Market Signals</div>
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="form-group">
+            <label class="form-label">Month (for Seasonality &amp; Sales Pressure Factor)</label>
+            <div class="slider-wrap">
+              <input type="range" id="f-month" min="1" max="12" value="7" oninput="onMonthChange()">
+              <span class="sval" id="f-month-lbl">Jul (7)</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-row c2">
+          <div class="form-group">
+            <label class="form-label">Inventory (units)</label>
+            <input type="number" id="f-inv" value="500" min="0" max="9999" step="10" placeholder="e.g. 500">
+          </div>
+          <div class="form-group">
+            <label class="form-label auto">Season (auto)</label>
+            <input type="text" id="f-season" readonly value="Summer">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Discount Controls</div>
+        <div class="form-row c2">
+          <div class="form-group">
+            <label class="form-label auto">Max Discount % (segment rule, auto)</label>
+            <input type="text" id="f-maxdisc" readonly placeholder="—">
+          </div>
+          <div class="form-group">
+            <label class="form-label blue">Margin Override (0–1) <span style="color:#9ca3af;font-weight:400;font-size:10px">replaces model's M, still clamped by tier</span></label>
+            <input type="number" id="f-margin-ovr" placeholder="e.g. 0.65 — leave blank for model" step="0.01" min="0.3" max="0.9">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-compute" id="compute-btn" onclick="computePrice()">Compute Dynamic Price &amp; Ask AI</button>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-panel">
+      <div class="results-empty" id="r-empty">
+        <div class="icon">📊</div>
+        <p>Configure a deal and click "Compute Dynamic Price" to see results.</p>
+        <span class="sub">AI-powered negotiation playbooks, pricing rationale &amp; scenarios will appear here</span>
+      </div>
+      <div class="results-body" id="r-body">
+        <div id="r-loading" style="display:none;padding:10px 0 20px">
+          <div class="lbar"><div class="lbar-inner"></div></div>
+          <p style="color:#6b7280;font-size:12px;text-align:center">Running pricing model...</p>
+        </div>
+        <div id="r-data" style="display:none">
+          <div class="r-section">
+            <h3>Price Output</h3>
+            <div class="kpi-row">
+              <div class="kpi-box"><div class="kv" id="r-cost">—</div><div class="kl">Cost incl. Tariff</div></div>
+              <div class="kpi-box"><div class="kv" id="r-price">—</div><div class="kl">Final Price</div></div>
+              <div class="kpi-box"><div class="kv" id="r-margin">—</div><div class="kl">Margin Used</div></div>
+            </div>
+            <div class="kpi-row-2">
+              <div class="kpi-box"><div class="kv" id="r-disc">—</div><div class="kl">Discount Applied</div></div>
+              <div class="kpi-box"><div class="kv" id="r-comp">—</div><div class="kl">Competitor Ref. Price</div></div>
+            </div>
+          </div>
+          <div class="r-section">
+            <h3>Negotiation Range</h3>
+            <div class="neg-row">
+              <div class="neg-card floor"><div class="nl">Floor Price</div><div class="np" id="r-floor">—</div><div class="nn">Walk-away minimum</div></div>
+              <div class="neg-card target"><div class="nl">Target Price ★</div><div class="np" id="r-target">—</div><div class="nn">Optimal ask price</div></div>
+              <div class="neg-card ceil"><div class="nl">Ceiling Price</div><div class="np" id="r-ceil">—</div><div class="nn">Maximum achievable</div></div>
+            </div>
+          </div>
+          <div class="r-section">
+            <h3 style="display:flex;align-items:center;justify-content:space-between">
+              Price Calculation Breakdown
+              <button class="btn-legend" onclick="toggleStrategyLegend()" title="Pricing strategy formulas">ⓘ Strategies</button>
+            </h3>
+            <div class="legend-panel" id="strategy-legend-panel" style="display:none">
+              <table>
+                <tr><td><strong>Stable</strong></td><td>Used for Premium-tier customers. Anchors price partly to cost, resisting market volatility.<br><span style="font-family:monospace;font-size:11px">Price = 0.7 × (Cost × 1.3) + 0.3 × CostPrice</span><br><span style="color:#9ca3af;font-size:10px">Cost × 1.3 = cost-anchor (30% markup). CostPrice = margin-derived floor. Blend = 70% anchor + 30% floor.</span></td></tr>
+                <tr><td><strong>Competitive</strong></td><td>Used for Standard-tier customers. Splits the difference between your cost-derived price and the market rate.<br><span style="font-family:monospace;font-size:11px">Price = (CostPrice + comp) ÷ 2</span><br><span style="color:#9ca3af;font-size:10px">comp = Competitor reference price = Cost × 1.25. Midpoint keeps you competitive without sacrificing margin.</span></td></tr>
+                <tr><td><strong>High-price</strong></td><td>Used for Wholesale/Competitor-tier. Prices above the cost-derived floor to capture maximum margin from bulk buyers.<br><span style="font-family:monospace;font-size:11px">Price = CostPrice × 1.15</span><br><span style="color:#9ca3af;font-size:10px">Adds a 15% premium on top of the margin-derived cost price. Justified by volume commitments.</span></td></tr>
+              </table>
+            </div>
+            <table class="bdown"><tbody id="r-bdown"></tbody></table>
+          </div>
+          <div class="r-section">
+            <h3 style="display:flex;align-items:center;justify-content:space-between">
+              Influential Factors Scoreboard
+              <button class="btn-legend" onclick="toggleLegend()" title="Factor definitions">ⓘ Legend</button>
+            </h3>
+            <div class="legend-panel" id="legend-panel" style="display:none"></div>
+            <div class="scoreboard" id="r-scoreboard"></div>
+          </div>
+          <div class="r-section">
+            <h3>Cross-Sell / Basic Product Suggestions</h3>
+            <div id="r-cs"></div>
+          </div>
+          <div class="r-section">
+            <h3>AI Explanation (Gemini 2.5 Flash)</h3>
+            <button class="btn-ai" id="btn-explain" onclick="generateExplanation()">✦ Generate AI Explanation</button>
+            <div class="ai-box" id="r-ai" style="display:none"></div>
+          </div>
+          <div class="r-section" style="border-top:2px solid #e5e9f0;padding-top:14px">
+            <button id="btn-save-deal" onclick="saveDealFromResults()" style="width:100%;padding:11px;background:#059669;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">💾 Save Deal to Dashboard</button>
+            <div id="save-deal-confirm" style="display:none;margin-top:8px;text-align:center;font-size:12px;color:#059669;font-weight:500">✓ Deal saved to Dashboard</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2 DASHBOARD -->
+<div id="tab-dashboard" class="tab-panel">
+  <div class="filters-bar">
+    <div class="card-label" style="margin-bottom:0;white-space:nowrap">Portfolio Filters</div>
+    <div class="fg"><span class="fl">Data Source</span>
+      <select id="df-src" onchange="applyFilters()">
+        <option value="baseline">Baseline</option>
+        <option value="combined">Baseline + Deals</option>
+        <option value="deals">Deals</option>
+      </select>
+    </div>
+    <div class="fg"><span class="fl">Product</span>
+      <select id="df-prod" onchange="applyFilters()"><option>All</option>
+        <option>Smartphone</option><option>Laptop</option><option>TV</option>
+        <option>Air Conditioner</option><option>Accessory</option><option>Networking Equipment</option>
+      </select>
+    </div>
+    <div class="fg"><span class="fl">Region</span>
+      <select id="df-reg" onchange="applyFilters()"><option>All</option>
+        <option>N_AMERICA</option><option>EMENA</option><option>APAC</option><option>CIS</option>
+      </select>
+    </div>
+    <div class="fg"><span class="fl">Segment</span>
+      <select id="df-seg" onchange="applyFilters()"><option>All</option>
+        <option>Premium</option><option>Standard</option><option>Competitor</option>
+      </select>
+    </div>
+    <div class="fr">
+      <span class="rcount" id="d-rcount">— records</span>
+      <button class="btn-sec" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+
+  <!-- KPIs: baseline mode -->
+  <div id="kpi-baseline" class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-lbl">Total Demand (units)</div><div class="kpi-val" id="d-bk1">0</div><div class="kpi-sub">across selection</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Avg Inventory</div><div class="kpi-val" id="d-bk2">—</div><div class="kpi-sub">units / SKU</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Avg Tariff</div><div class="kpi-val" id="d-bk3">—</div><div class="kpi-sub">weighted</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Avg Price Δ vs Competitor</div><div class="kpi-val" id="d-bk4">—</div><div class="kpi-sub">our − competitor</div></div>
+  </div>
+  <!-- KPIs: deals mode -->
+  <div id="kpi-deals" class="kpi-grid" style="display:none">
+    <div class="kpi-card"><div class="kpi-lbl">Total Deals Saved</div><div class="kpi-val" id="d-k1">0</div><div class="kpi-sub">this session</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Total Deal Value</div><div class="kpi-val" id="d-k2">$0</div><div class="kpi-sub">&nbsp;</div></div>
+    <div class="kpi-card" id="d-k3c"><div class="kpi-lbl">Avg Final Margin</div><div class="kpi-val" id="d-k3">—</div><div class="kpi-sub" id="d-k3s">&nbsp;</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Avg Discount Applied</div><div class="kpi-val" id="d-k4">—</div><div class="kpi-sub">&nbsp;</div></div>
+  </div>
+
+  <!-- Charts: Baseline / Baseline+Deals → catalog-derived charts -->
+  <div id="charts-baseline">
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Demand by Region</div><div class="chart-wrap"><canvas id="dc-dem-reg"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Inventory by Region</div><div class="chart-wrap"><canvas id="dc-inv-reg"></canvas></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Demand Distribution</div><div class="chart-wrap"><canvas id="dc-pie"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Our Price vs Competitor</div><div class="chart-wrap"><canvas id="dc-price"></canvas></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Tariff by Product</div><div class="chart-wrap"><canvas id="dc-tariff"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Revenue by Product</div><div class="chart-wrap"><canvas id="dc-rev"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- Charts: Deals → deal-based charts with empty overlay when no deals -->
+  <div id="charts-deals" style="display:none">
+    <div id="no-deals-banner" class="no-deals-banner">⚠ No deals saved yet — compute a price in the Pricing Deal Builder and click "Save Deal to Dashboard".</div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Deals by Product</div><div class="chart-wrap"><canvas id="dc-prod"></canvas><div class="chart-empty-overlay" id="ov-prod"><span class="eo-icon">📦</span><span>No deals saved</span></div></div></div>
+      <div class="chart-card"><div class="chart-title">Revenue by Region</div><div class="chart-wrap"><canvas id="dc-reg"></canvas><div class="chart-empty-overlay" id="ov-reg"><span class="eo-icon">🌍</span><span>No deals saved</span></div></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Avg Margin by Segment</div><div class="chart-wrap"><canvas id="dc-seg"></canvas><div class="chart-empty-overlay" id="ov-seg"><span class="eo-icon">📊</span><span>No deals saved</span></div></div></div>
+      <div class="chart-card"><div class="chart-title">Price vs Cost (by Segment)</div><div class="chart-wrap"><canvas id="dc-scatter"></canvas><div class="chart-empty-overlay" id="ov-scatter"><span class="eo-icon">💹</span><span>No deals saved</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="dealpanel">
+    <div class="dealhdr">
+      <div class="card-label" style="margin-bottom:0">Saved Deals — This Session</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn-clr" id="btn-clr" onclick="showClearConfirm()">🗑 Clear All Deals</button>
+        <div class="clear-confirm" id="clear-confirm">
+          Are you sure? This cannot be undone.
+          <button class="btn-confirm-yes" onclick="clearDeals()">Yes, clear</button>
+          <button class="btn-confirm-no" onclick="hideClearConfirm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="d-deals"></div>
+  </div>
+  <div class="ins-card">
+    <div class="ins-hdr">
+      <div class="ins-ttl">AI Prescriptive Insights (Gemini 2.5 Flash)</div>
+      <button class="btn-gen" id="btn-insights" onclick="generateInsights()">Generate Insights</button>
+    </div>
+    <div class="ins-body empty" id="ins-body">Click "Generate Insights" to receive AI-powered prescriptive recommendations based on your saved deals portfolio.</div>
+  </div>
+</div>
+</div><!-- end .main -->
+
+
+
+
+
+
+
+
+<script>
+// ════════════════════════════════════════════════
+// BASELINE DATA — computed lazily after CATALOG is defined
+// ════════════════════════════════════════════════
+const REGIONS_A=['N_AMERICA','EMENA','APAC','CIS'];
+let _baseline=null;
+function baseInventory_a(prod,sub,region){
+  const cost=getCost(prod,sub),tariff=getTariff(region,prod,sub);
+  const seed=(prod.length*7+sub.length*13+region.length*17)%100;
+  return Math.max(80,Math.min(1400,Math.round(1500-cost*0.6-tariff*1200+seed*4)));
+}
+function baseDemand_a(prod,sub,region){
+  let spfSum=0,sfSum=0;
+  for(let m=1;m<=12;m++){spfSum+=getSPF(prod,sub,region,m);sfSum+=getSeasonMult(prod,m);}
+  const regionMult={N_AMERICA:1.2,EMENA:1.0,APAC:1.3,CIS:0.8}[region]||1;
+  return Math.round(spfSum/12*sfSum/12*regionMult*180);
+}
+function getBaseline(){
+  if(_baseline) return _baseline;
+  const rows=[];
+  Object.keys(CATALOG).forEach(p=>CATALOG[p].forEach(sub=>REGIONS_A.forEach(r=>{
+    rows.push({product:p,sub,region:r,
+      demand:baseDemand_a(p,sub,r),inventory:baseInventory_a(p,sub,r),
+      tariff:getTariff(r,p,sub),cost:getCost(p,sub),
+      ourPrice:+(getCost(p,sub)*(1+getTariff(r,p,sub))/(1-0.65)).toFixed(2),
+      compPrice:+(getCost(p,sub)*1.25).toFixed(2)});
+  })));
+  return (_baseline=rows);
+}
+
+// ════════════════════════════════════════════════
+// ANALYTICS TAB
+// ════════════════════════════════════════════════
+const AC={};
+function destroyAChart(k){if(AC[k]){AC[k].destroy();delete AC[k];}}
+function renderAnalytics(){
+  const PRODS=Object.keys(CATALOG);
+  const pf=document.getElementById('af-prod')?.value||'All';
+  const rf=document.getElementById('af-reg')?.value||'All';
+  const src=document.getElementById('af-src')?.value||'combined';
+  const base=getBaseline().filter(r=>(pf==='All'||r.product===pf)&&(rf==='All'||r.region===rf));
+  const deals=loadDeals().filter(d=>(pf==='All'||d.product===pf)&&(rf==='All'||d.region===rf));
+  const agg={};
+  const key=(p,r)=>p+'|'+r;
+  const ensure=k=>agg[k]||(agg[k]={demand:0,invSum:0,invN:0,tariffW:0,tariffN:0,ourSum:0,ourN:0,compSum:0,compN:0});
+  if(src!=='deals') base.forEach(r=>{const a=ensure(key(r.product,r.region));a.demand+=r.demand;a.invSum+=r.inventory;a.invN++;a.tariffW+=r.tariff;a.tariffN++;a.ourSum+=r.ourPrice;a.ourN++;a.compSum+=r.compPrice;a.compN++;});
+  if(src!=='baseline') deals.forEach(d=>{const a=ensure(key(d.product,d.region));a.demand+=d.quantity;a.tariffW+=d.tariff;a.tariffN++;a.ourSum+=d.final_price;a.ourN++;a.compSum+=d.cost*1.25;a.compN++;});
+  const recCount=src==='deals'?deals.length:src==='baseline'?base.length:base.length+deals.length;
+  document.getElementById('a-rcount').textContent=`${recCount} record${recCount!==1?'s':''}`;
+  const perProd={};PRODS.forEach(p=>perProd[p]={demand:0,invSum:0,invN:0,tariffW:0,tariffN:0,ourSum:0,ourN:0,compSum:0,compN:0});
+  const perReg={};REGIONS_A.forEach(r=>perReg[r]={invSum:0,invN:0});
+  Object.entries(agg).forEach(([k,a])=>{const[p,r]=k.split('|');if(perProd[p]){Object.keys(a).forEach(kk=>perProd[p][kk]+=a[kk]);}if(perReg[r]){perReg[r].invSum+=a.invSum;perReg[r].invN+=a.invN;}});
+  const allTW=Object.values(perProd).reduce((s,v)=>s+v.tariffW,0),allTN=Object.values(perProd).reduce((s,v)=>s+v.tariffN,0);
+  const allOurS=Object.values(perProd).reduce((s,v)=>s+v.ourSum,0),allOurN=Object.values(perProd).reduce((s,v)=>s+v.ourN,0);
+  const allCompS=Object.values(perProd).reduce((s,v)=>s+v.compSum,0),allCompN=Object.values(perProd).reduce((s,v)=>s+v.compN,0);
+  const allInv=Object.values(perReg).reduce((s,v)=>s+v.invSum,0),allInvN=Object.values(perReg).reduce((s,v)=>s+v.invN,0);
+  document.getElementById('a-k1').textContent=Object.values(perProd).reduce((s,v)=>s+v.demand,0).toLocaleString();
+  document.getElementById('a-k2').textContent=allInvN?Math.round(allInv/allInvN).toLocaleString():'—';
+  document.getElementById('a-k3').textContent=allTN?(allTW/allTN*100).toFixed(1)+'%':'—';
+  const dp=(allOurN&&allCompN)?(allOurS/allOurN-allCompS/allCompN):0;
+  document.getElementById('a-k4').textContent=(allOurN&&allCompN)?(dp>=0?'+':'')+'$'+dp.toFixed(2):'—';
+  buildAnalyticsCharts(perProd,perReg);
+}
+function buildAnalyticsCharts(perProd,perReg){
+  const PRODS=Object.keys(CATALOG);
+  const F={family:'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',size:11};
+  const PAL=['#0f2942','#2563eb','#7c3aed','#059669','#dc2626','#f59e0b'];
+  const prodLabels=PRODS.filter(p=>perProd[p].demand>0||perProd[p].tariffN>0);
+  destroyAChart('demand');
+  AC['demand']=new Chart(document.getElementById('ac-demand'),{type:'bar',data:{labels:prodLabels,datasets:[{data:prodLabels.map(p=>perProd[p].demand),backgroundColor:'#0f2942',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' units'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280'}}}}});
+  destroyAChart('inv');
+  const regLabels=REGIONS_A.filter(r=>perReg[r].invN>0);
+  AC['inv']=new Chart(document.getElementById('ac-inv'),{type:'bar',data:{labels:regLabels,datasets:[{data:regLabels.map(r=>perReg[r].invN?Math.round(perReg[r].invSum/perReg[r].invN):0),backgroundColor:'#059669',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' units avg/SKU'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280'}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280'}}}}});
+  destroyAChart('pie');
+  const pieData=prodLabels.map(p=>perProd[p].demand);const pieTotal=pieData.reduce((a,b)=>a+b,0)||1;
+  AC['pie']=new Chart(document.getElementById('ac-pie'),{type:'doughnut',data:{labels:prodLabels,datasets:[{data:pieData,backgroundColor:PAL.slice(0,prodLabels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:F,color:'#374151',boxWidth:10,padding:8}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toLocaleString()} (${(c.parsed/pieTotal*100).toFixed(1)}%)`}}}}});
+  destroyAChart('price');
+  AC['price']=new Chart(document.getElementById('ac-price'),{type:'bar',data:{labels:prodLabels,datasets:[{label:'Our Price',data:prodLabels.map(p=>perProd[p].ourN?+(perProd[p].ourSum/perProd[p].ourN).toFixed(2):0),backgroundColor:'#2563eb',borderRadius:3},{label:'Competitor',data:prodLabels.map(p=>perProd[p].compN?+(perProd[p].compSum/perProd[p].compN).toFixed(2):0),backgroundColor:'#dc2626',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': $'+c.parsed.y.toFixed(2)}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>'$'+v}}}}});
+  destroyAChart('tariff');
+  const rfv=document.getElementById('af-reg')?.value||'All';
+  const regsT=rfv==='All'?REGIONS_A:[rfv];
+  AC['tariff']=new Chart(document.getElementById('ac-tariff'),{type:'bar',data:{labels:prodLabels,datasets:regsT.map((r,i)=>({label:r,data:prodLabels.map(p=>{const subs=CATALOG[p];return +(subs.map(s=>getTariff(r,p,s)).reduce((a,b)=>a+b,0)/subs.length*100).toFixed(2);}),backgroundColor:PAL[i%PAL.length],borderRadius:3}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+'%'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}}}}});
+}
+// ════════════════════════════════════════════════
+const GKEY = 'AIzaSyDTY3Ic5b6WnSzlX2ncd2JmKXMrC2ysJNQ';
+const GMODEL = 'gemini-2.5-flash';
+async function callGemini(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GMODEL}:generateContent?key=${GKEY}`;
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || 'No response.';
+}
+
+// ════════════════════════════════════════════════
+// NOTEBOOK BACKEND — EXACT PRICING MODEL (Python → JS)
+// Product catalog, elasticity, tariff, segment rules,
+// dynamic_price, optimize_discount, negotiation range
+// ════════════════════════════════════════════════
+
+// 50 customers from notebook (np.random.seed(42))
+const CUSTOMERS = [
+  {name:"Customer_0",seg:"Competitor",region:"N_AMERICA",val:37454},
+  {name:"Customer_1",seg:"Standard",region:"APAC",val:95071},
+  {name:"Customer_2",seg:"Standard",region:"EMENA",val:73199},
+  {name:"Customer_3",seg:"Premium",region:"CIS",val:59865},
+  {name:"Customer_4",seg:"Competitor",region:"N_AMERICA",val:15601},
+  {name:"Customer_5",seg:"Standard",region:"APAC",val:15600},
+  {name:"Customer_6",seg:"Premium",region:"EMENA",val:58084},
+  {name:"Customer_7",seg:"Competitor",region:"CIS",val:86617},
+  {name:"Customer_8",seg:"Competitor",region:"N_AMERICA",val:70807},
+  {name:"Customer_9",seg:"Standard",region:"APAC",val:20921},
+  {name:"Customer_10",seg:"Premium",region:"EMENA",val:18183},
+  {name:"Customer_11",seg:"Standard",region:"CIS",val:18340},
+  {name:"Customer_12",seg:"Competitor",region:"N_AMERICA",val:30424},
+  {name:"Customer_13",seg:"Premium",region:"APAC",val:52475},
+  {name:"Customer_14",seg:"Standard",region:"EMENA",val:43194},
+  {name:"Customer_15",seg:"Competitor",region:"CIS",val:29122},
+  {name:"Customer_16",seg:"Premium",region:"N_AMERICA",val:61185},
+  {name:"Customer_17",seg:"Standard",region:"APAC",val:13949},
+  {name:"Customer_18",seg:"Competitor",region:"EMENA",val:29214},
+  {name:"Customer_19",seg:"Premium",region:"CIS",val:36636},
+  {name:"Customer_20",seg:"Standard",region:"N_AMERICA",val:45606},
+  {name:"Customer_21",seg:"Competitor",region:"APAC",val:78518},
+  {name:"Customer_22",seg:"Premium",region:"EMENA",val:19967},
+  {name:"Customer_23",seg:"Standard",region:"CIS",val:51423},
+  {name:"Customer_24",seg:"Competitor",region:"N_AMERICA",val:59241},
+  {name:"Customer_25",seg:"Premium",region:"APAC",val:46559},
+  {name:"Customer_26",seg:"Standard",region:"EMENA",val:60796},
+  {name:"Customer_27",seg:"Premium",region:"CIS",val:70807},
+  {name:"Customer_28",seg:"Competitor",region:"N_AMERICA",val:19895},
+  {name:"Customer_29",seg:"Standard",region:"APAC",val:96990},
+  {name:"Customer_30",seg:"Premium",region:"EMENA",val:83244},
+  {name:"Customer_31",seg:"Competitor",region:"CIS",val:21233},
+  {name:"Customer_32",seg:"Standard",region:"N_AMERICA",val:18182},
+  {name:"Customer_33",seg:"Premium",region:"APAC",val:18340},
+  {name:"Customer_34",seg:"Standard",region:"EMENA",val:30424},
+  {name:"Customer_35",seg:"Competitor",region:"CIS",val:52476},
+  {name:"Customer_36",seg:"Premium",region:"N_AMERICA",val:43194},
+  {name:"Customer_37",seg:"Standard",region:"APAC",val:29122},
+  {name:"Customer_38",seg:"Competitor",region:"EMENA",val:61186},
+  {name:"Customer_39",seg:"Premium",region:"CIS",val:13949},
+  {name:"Customer_40",seg:"Standard",region:"N_AMERICA",val:29214},
+  {name:"Customer_41",seg:"Competitor",region:"APAC",val:36636},
+  {name:"Customer_42",seg:"Premium",region:"EMENA",val:45606},
+  {name:"Customer_43",seg:"Standard",region:"CIS",val:78518},
+  {name:"Customer_44",seg:"Competitor",region:"N_AMERICA",val:19967},
+  {name:"Customer_45",seg:"Premium",region:"APAC",val:51423},
+  {name:"Customer_46",seg:"Standard",region:"EMENA",val:59241},
+  {name:"Customer_47",seg:"Competitor",region:"CIS",val:46560},
+  {name:"Customer_48",seg:"Premium",region:"N_AMERICA",val:60796},
+  {name:"Customer_49",seg:"Standard",region:"APAC",val:70807},
+];
+
+// Product catalog (exact from notebook)
+const CATALOG = {
+  "Smartphone":["128GB","256GB","512GB"],
+  "Laptop":["i5","i7","i9"],
+  "TV":["32 inch","50 inch","65 inch"],
+  "Air Conditioner":["1 Ton","1.5 Ton","2 Ton"],
+  "Accessory":["Basic","Advanced"],
+  "Networking Equipment":["Small","Medium","Large"]
+};
+
+// get_cost — exact from notebook
+function getCost(prod,sub){
+  const b={Smartphone:300,Laptop:700,TV:400,"Air Conditioner":500,Accessory:100,"Networking Equipment":600};
+  const m={"128GB":1.0,"256GB":1.2,"512GB":1.5,"i5":1.0,"i7":1.3,"i9":1.6,
+    "32 inch":1.0,"50 inch":1.3,"65 inch":1.6,"1 Ton":1.0,"1.5 Ton":1.3,"2 Ton":1.6,
+    "Basic":1.0,"Advanced":1.5,"Small":1.0,"Medium":1.3,"Large":1.6};
+  return (b[prod]||300)*(m[sub]||1.0);
+}
+
+// Tariff — exact from notebook
+const RTARIFF={N_AMERICA:0.25,EMENA:0.18,APAC:0.12,CIS:0.20};
+const PTARIFF={"Smartphone":{"128GB":1.0,"256GB":1.05,"512GB":1.1},
+  "Laptop":{"i5":1.0,"i7":1.05,"i9":1.1},"TV":{"32 inch":0.95,"50 inch":1.0,"65 inch":1.05},
+  "Air Conditioner":{"1 Ton":0.9,"1.5 Ton":0.95,"2 Ton":1.0},
+  "Accessory":{"Basic":0.9,"Advanced":1.0},"Networking Equipment":{"Small":1.0,"Medium":1.05,"Large":1.1}};
+function getTariff(region,prod,sub){
+  return (RTARIFF[region]||0.20)*((PTARIFF[prod]||{})[sub]||1.0);
+}
+
+// Elasticity — exact from notebook (deterministic)
+function getElasticity(prod,sub){
+  if(["128GB","1 Ton","Basic","Small"].includes(sub)) return -2.15;
+  if(["512GB","2 Ton","Advanced","Large"].includes(sub)) return -0.75;
+  return -1.25;
+}
+
+// Season — exact from notebook
+function getSeason(m){
+  if([12,1,2].includes(m)) return "Winter";
+  if([3,4,5].includes(m)) return "Spring";
+  if([6,7,8].includes(m)) return "Summer";
+  return "Fall";
+}
+
+// Season multiplier (from notebook's simulate_seasonality)
+function getSeasonMult(prod,month){
+  if(prod==="Air Conditioner"&&[6,7,8].includes(month)) return 1.5;
+  if(prod==="Smartphone"&&[11,12].includes(month)) return 1.3;
+  if(prod==="Laptop"&&[8,9].includes(month)) return 1.2;
+  return 1.0;
+}
+
+// Sales pressure factor (derived from notebook's derived_sales_pressure_df logic, 0.9–1.1)
+function getSPF(prod,sub,region,month){
+  const patterns={
+    "Air Conditioner":[0.1,0.1,0.3,0.5,0.7,1.0,1.0,0.9,0.6,0.3,0.1,0.1],
+    "Smartphone":[0.4,0.3,0.4,0.5,0.5,0.5,0.6,0.7,0.7,0.8,0.9,1.0],
+    "Laptop":[0.4,0.3,0.5,0.5,0.5,0.4,0.5,1.0,1.0,0.7,0.5,0.4],
+    "TV":[0.6,0.5,0.5,0.5,0.6,0.6,0.7,0.7,0.6,0.7,0.9,1.0],
+    "Accessory":[0.5,0.5,0.5,0.5,0.6,0.6,0.7,0.7,0.6,0.7,0.8,1.0],
+    "Networking Equipment":[0.6,0.6,0.7,0.8,0.8,0.8,0.7,0.7,0.9,0.9,0.7,0.6]
+  };
+  const norm=(patterns[prod]||Array(12).fill(0.5))[month-1];
+  return 0.9+norm*0.2;
+}
+
+// Map free-text segment label → internal pricing tier
+// "premium" → Premium  |  "wholesale" / "bulk" → Competitor (tight discount, high margin)
+// everything else (new customer, returning, corporate, etc.) → Standard
+function segToTier(seg){
+  const s=(seg||'').toLowerCase();
+  if(s.includes('premium')) return 'Premium';
+  if(s.includes('wholesale')||s.includes('bulk')) return 'Competitor';
+  return 'Standard';
+}
+
+// Segment rules mapped by tier
+function segRules(seg){
+  const tier=segToTier(seg);
+  if(tier==='Premium')    return {tier:'Premium',   margin_min:0.55,margin_target:0.65,max_discount:0.25,strategy:"stable"};
+  if(tier==='Competitor') return {tier:'Competitor',margin_min:0.65,margin_target:0.75,max_discount:0.03,strategy:"high_price"};
+  return                         {tier:'Standard',  margin_min:0.60,margin_target:0.70,max_discount:0.12,strategy:"competitive"};
+}
+
+// Predict margin — approximates Random Forest model from notebook
+// Model features: cost,tariff,elasticity,inventory,demand,season_factor,quantity,customer_value,
+//                 last_sales_price,last_qty_invoiced,total_sales_value_history,last_sales_margin
+// Trained on margin range [0.55, 0.85]; output clamped by segment rules.
+function predictMargin(cost,tariff,elasticity,inventory,sf,qty,custVal,seg){
+  const rules=segRules(seg);
+  let base=(rules.margin_min+rules.margin_target)/2;
+  base+=(custVal/100000)*0.04;
+  base-=tariff*0.06;
+  base-=(Math.abs(elasticity)-1.0)*0.02;
+  base-=(qty/2000)*0.04;
+  base-=(inventory/2000)*0.03;
+  base+=(sf-1.0)*0.05;
+  return Math.max(rules.margin_min,Math.min(0.85,base));
+}
+
+// dynamic_price — exact formula from notebook
+// When row.marginOverridden is true, predMargin is used directly (no tier clamping),
+// only clamped to [0.01, 0.99] to prevent division by zero.
+function dynamicPrice(row,predMargin){
+  const rules=segRules(row.seg);
+  const margin=row.marginOverridden
+    ? Math.max(0.01,Math.min(0.99,predMargin))
+    : Math.max(rules.margin_min,Math.min(predMargin,rules.margin_target));
+  const costPrice=(row.cost*(1+row.tariff))/(1-margin);
+  const sf=getSeasonMult(row.prod,row.month);
+  const spf=getSPF(row.prod,row.sub,row.region,row.month);
+  const comp=row.cost*1.25; // fixed competitor price (notebook: row.cost * 1.25)
+  const base=costPrice*sf*spf;
+  let price;
+  if(rules.strategy==="stable")       price=0.7*(row.cost*1.3)+0.3*base;
+  else if(rules.strategy==="competitive") price=(base+comp)/2;
+  else                                price=base*1.15;
+  return {price,margin,costPrice,base,sf,spf,comp};
+}
+
+// optimize_discount — exact from notebook
+function optimizeDiscount(row,predMargin){
+  const rules=segRules(row.seg);
+  const dp=dynamicPrice(row,predMargin);
+  const discount=row.qty>500?rules.max_discount:rules.max_discount*0.5;
+  const finalPrice=dp.price*(1-discount);
+  return {discount,finalPrice,...dp,rules};
+}
+
+// Negotiation range — exact from notebook
+function negRange(price,seg){
+  const tier=segToTier(seg);
+  if(tier==='Premium')    return {floor:price*0.90,target:price,ceil:price*1.05};
+  if(tier==='Competitor') return {floor:price*0.95,target:price,ceil:price*1.12};
+  return                         {floor:price*0.92,target:price,ceil:price*1.08};
+}
+
+// Cross-sell — exact logic from notebook's suggest_cross_sell_product
+function crossSell(region,prod,sub){
+  const out=[];
+  if(prod!=="Accessory"){
+    const opts=CATALOG["Accessory"].map(sg=>({
+      type:"Cross-sell Accessory",prod:"Accessory",sub:sg,
+      tariff:getTariff(region,"Accessory",sg),
+      reason:`Complementary accessory (${sg}), tariff ${getTariff(region,"Accessory",sg).toFixed(3)} in ${region}.`
+    })).sort((a,b)=>a.tariff-b.tariff);
+    if(opts.length){ out.push({...opts[0],type:"Cross-sell Accessory (Lowest Tariff)"}); }
+    const basic=opts.find(o=>o.sub==="Basic");
+    if(basic&&basic.sub!==opts[0].sub) out.push({...basic,type:"Cross-sell Accessory (Basic)"});
+  }
+  const basicSubs=["128GB","i5","Small","1 Ton","32 inch","Basic"];
+  for(const [p,subs] of Object.entries(CATALOG)){
+    if(p===prod||p==="Accessory") continue;
+    for(const sg of subs){
+      if(basicSubs.includes(sg)){
+        const t=getTariff(region,p,sg);
+        out.push({type:"Basic Product (other category)",prod:p,sub:sg,tariff:t,
+          reason:`Basic variant (${sg}) of ${p}, tariff ${t.toFixed(3)} in ${region}.`});
+      }
+    }
+  }
+  return out.sort((a,b)=>a.tariff-b.tariff).slice(0,5);
+}
+
+// ════════════════════════════════════════════════
+// CROSS-SELL TABLE RENDERER
+// Columns: SKU | Product | Type | Price (region) | Solo Margin
+//          Bundle Disc | Bundle Price | Bundle Margin
+// Bundle = 5% extra discount applied to cross-sell item when bought with main product
+// Bundle margin = weighted profit of both items / combined revenue
+// ════════════════════════════════════════════════
+const BUNDLE_DISC=0.05; // 5% bundle discount on cross-sell item
+function renderCsTable(suggestions,customer,mainFinalPrice,mainMargin,mainCost,mainTariff){
+  const seg=customer.seg;
+  const region=customer.region;
+  const rules=segRules(seg);
+  // cost incl tariff for main item
+  const mainCostIT=mainCost*(1+mainTariff);
+
+  const rows=suggestions.map(s=>{
+    const csCost=getCost(s.prod,s.sub);
+    const csTariff=getTariff(region,s.prod,s.sub);
+    const csCostIT=csCost*(1+csTariff);
+    // standalone price at segment target margin in this region
+    const csPrice=csCostIT/(1-rules.margin_target);
+    const csSoloMargin=(csPrice-csCostIT)/csPrice;
+    // bundle: 5% extra discount on cross-sell item
+    const csBundlePrice=csPrice*(1-BUNDLE_DISC);
+    const csBundleProfit=csBundlePrice-csCostIT;
+    // combined bundle margin = (main profit + cs bundle profit) / (main price + cs bundle price)
+    const mainProfit=mainFinalPrice-mainCostIT;
+    const bundleMargin=(mainProfit+csBundleProfit)/(mainFinalPrice+csBundlePrice);
+    return {s,csPrice,csSoloMargin,csBundlePrice,bundleMargin,csTariff};
+  });
+
+  return `<table class="cs-table">
+    <thead><tr>
+      <th>SKU</th>
+      <th>Product</th>
+      <th>Type</th>
+      <th>Price (${region})</th>
+      <th>Solo Margin</th>
+      <th>Bundle Disc</th>
+      <th>Bundle Price</th>
+      <th>Bundle Margin</th>
+    </tr></thead>
+    <tbody>${rows.map(({s,csPrice,csSoloMargin,csBundlePrice,bundleMargin,csTariff})=>`<tr>
+      <td><span class="cs-sku">${s.sub}</span></td>
+      <td style="white-space:nowrap">${s.prod}</td>
+      <td><span class="cs-type-badge">${s.type.replace('Cross-sell ','').replace('Basic Product (other category)','Basic Alt')}</span></td>
+      <td>$${csPrice.toFixed(2)}</td>
+      <td>${(csSoloMargin*100).toFixed(1)}%</td>
+      <td class="cs-bundle-disc">−${(BUNDLE_DISC*100).toFixed(0)}%</td>
+      <td>$${csBundlePrice.toFixed(2)}</td>
+      <td class="cs-bundle-good">${(bundleMargin*100).toFixed(1)}%</td>
+    </tr>`).join('')}
+    </tbody></table>
+  <div style="font-size:10px;color:#9ca3af;margin-top:6px">Bundle price = cross-sell item at −${(BUNDLE_DISC*100).toFixed(0)}% when purchased with main product. Bundle margin = combined weighted profit margin of both items.</div>`;
+}
+
+// ════════════════════════════════════════════════
+// SCOREBOARD LEGEND
+// ════════════════════════════════════════════════
+const LEGEND_DEF=[
+  {factor:"Cost",          formula:"BaseCost = catalog lookup (product × subgroup). Normalized 0–$1200.",
+   impact:"Higher cost → larger floor constraint on price. Score ∝ cost/1200."},
+  {factor:"Customer Value",formula:"Lookup from customer record ($). Normalized 0–$100K.",
+   impact:"High-value customers absorb higher margins. Score ∝ value/100K × 90."},
+  {factor:"Elasticity",    formula:"Fixed per SKU tier: Basic=−2.15, Mid=−1.25, Premium=−0.75.",
+   impact:"More elastic = demand drops sharply with price rises, caps stretch. Score ∝ |e|/2.5 × 80."},
+  {factor:"Season Factor", formula:"Product-specific peak multiplier: AC summer ×1.5, Smartphone Nov–Dec ×1.3, Laptop Aug–Sep ×1.2, others ×1.0.",
+   impact:"Peak season supports margin expansion. Score ∝ (sf−0.9)/0.6 × 75 + 20."},
+  {factor:"Tariff",        formula:"Region rate × product-subgroup rate. Region: N_AMERICA 25%, EMENA 18%, APAC 12%, CIS 20%.",
+   impact:"Higher tariff raises cost base, compresses net margin. Score ∝ tariff/0.35 × 70."},
+  {factor:"Sales Pressure",formula:"Monthly SPF per product from historical sales pattern. Range 0.9–1.1.",
+   impact:"High pressure (hot product, peak month) allows above-cost pricing. Score ∝ (spf−0.9)/0.2 × 65 + 15."},
+  {factor:"Inventory",     formula:"Units in stock (0–2000). Normalized to 2000.",
+   impact:"Excess stock adds discount pressure to move product. Score ∝ inv/2000 × 50."},
+  {factor:"Quantity",      formula:"Deal quantity (0–2000). Normalized to 2000.",
+   impact:"Large orders trigger higher discount tier (>500 units = full max discount). Score ∝ qty/2000 × 60."},
+];
+let stratLegendOpen=false;
+function toggleStrategyLegend(){
+  stratLegendOpen=!stratLegendOpen;
+  document.getElementById('strategy-legend-panel').style.display=stratLegendOpen?'block':'none';
+}
+
+let legendOpen=false;
+function toggleLegend(){
+  legendOpen=!legendOpen;
+  const panel=document.getElementById('legend-panel');
+  if(legendOpen){
+    panel.innerHTML=`<table>${LEGEND_DEF.map(d=>`<tr>
+      <td>${d.factor}</td>
+      <td><em style="color:#6b7280;font-size:11px">${d.formula}</em><br>${d.impact}</td>
+    </tr>`).join('')}</table>`;
+    panel.style.display='block';
+  } else {
+    panel.style.display='none';
+  }
+}
+
+// Feature scoreboard — approximates RF feature importances
+function scoreboard(row,margin){
+  const costN=Math.min(1,row.cost/1200);
+  const tariffN=row.tariff/0.35;
+  const elasN=Math.abs(row.elasticity)/2.5;
+  const invN=row.inv/2000;
+  const qtyN=row.qty/2000;
+  const cvalN=(row.custVal||50000)/100000;
+  const sfN=(row.sf-0.9)/0.6;
+  const spfN=(row.spf-0.9)/0.2;
+  return [
+    {factor:"Cost",           score:Math.round(costN*100),  why:"Higher cost → larger price floor constraint"},
+    {factor:"Customer Value", score:Math.round(cvalN*90),   why:"Premium customers absorb higher margins"},
+    {factor:"Elasticity",     score:Math.round(elasN*80),   why:"Elastic demand caps how far price can stretch"},
+    {factor:"Season Factor",  score:Math.round(sfN*75+20),  why:"Peak season supports price & margin expansion"},
+    {factor:"Tariff",         score:Math.round(tariffN*70), why:"Higher tariff raises cost base"},
+    {factor:"Sales Pressure", score:Math.round(spfN*65+15), why:"Historical demand pressure allows above-cost pricing"},
+    {factor:"Inventory",      score:Math.round(invN*50),    why:"Excess stock adds discount pressure"},
+    {factor:"Quantity",       score:Math.round(qtyN*60),    why:"Large orders trigger higher discount tier"},
+  ];
+}
+
+// ════════════════════════════════════════════════
+// IN-MEMORY DEAL STORE (replaces localStorage — not supported in Claude.ai)
+// ════════════════════════════════════════════════
+let DEALS=[];
+function loadDeals(){ return DEALS; }
+function saveDeal(d){ d.id=Date.now(); d.ts=new Date().toISOString(); DEALS.unshift(d); updateCount(); }
+function clearDeals(){ DEALS=[]; updateCount(); renderDash(); hideClearConfirm(); }
+function updateCount(){ document.getElementById('deal-count').textContent=DEALS.length; }
+function showClearConfirm(){
+  const deals=loadDeals();
+  if(!deals.length) return;
+  document.getElementById('clear-confirm').classList.add('show');
+  document.getElementById('btn-clr').style.display='none';
+}
+function hideClearConfirm(){
+  document.getElementById('clear-confirm').classList.remove('show');
+  document.getElementById('btn-clr').style.display='';
+}
+function exportCSV(){
+  const d=loadDeals(); if(!d.length) return alert('No deals to export.');
+  const h=Object.keys(d[0]).join(',');
+  const rows=d.map(r=>Object.values(r).map(v=>`"${v}"`).join(','));
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([h,...rows].join('\n'));
+  a.download=`pricing_deals_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+// ════════════════════════════════════════════════
+// COMPUTE PRICE — main action
+// ════════════════════════════════════════════════
+let lastState=null;
+function computePrice(){
+  const clientName=(document.getElementById('f-cust-name').value||'').trim();
+  if(!clientName) return alert('Please enter a Client Name.');
+  const region=document.getElementById('f-reg').value;
+  if(!region) return alert('Please select a Region.');
+  const seg=(document.getElementById('f-seg').value||'').trim()||'Standard';
+  const custVal=50000; // fixed default — customer value input removed
+  const prod=document.getElementById('f-prod').value;
+  const sub=document.getElementById('f-sub').value;
+  if(!prod||!sub) return alert('Please select a Product and Subgroup.');
+  const qty=parseInt(document.getElementById('f-qty').value)||100;
+  const month=parseInt(document.getElementById('f-month').value);
+  const inv=parseInt(document.getElementById('f-inv').value)||500;
+  const cost=getCost(prod,sub);
+  const tariffRaw=document.getElementById('f-tariff').value;
+  const tariff=tariffRaw!==''?parseFloat(tariffRaw):getTariff(region,prod,sub);
+  const elasticity=getElasticity(prod,sub);
+  const sf=getSeasonMult(prod,month);
+  const spf=getSPF(prod,sub,region,month);
+  const season=getSeason(month);
+  const marginOvr=document.getElementById('f-margin-ovr').value;
+
+  const row={customer:clientName,seg,custVal,region,prod,sub,month,season,cost,tariff,elasticity,inv,qty,sf,spf,marginOverridden:marginOvr!==''};
+
+  document.getElementById('r-empty').style.display='none';
+  document.getElementById('r-body').style.cssText='display:flex;flex-direction:column;flex:1';
+  document.getElementById('r-loading').style.display='block';
+  document.getElementById('r-data').style.display='none';
+  document.getElementById('compute-btn').disabled=true;
+  document.getElementById('compute-btn').innerHTML='<span class="spinner"></span> Computing...';
+
+  setTimeout(()=>{
+    const predM=marginOvr!==''?parseFloat(marginOvr):predictMargin(cost,tariff,elasticity,inv,sf,qty,custVal,seg);
+    const {discount,finalPrice,margin,costPrice,base,comp,rules}=optimizeDiscount(row,predM);
+    const neg=negRange(finalPrice,seg);
+    const cs=crossSell(region,prod,sub);
+    const sb=scoreboard({...row},margin);
+    lastState={row,finalPrice,discount,margin,costPrice,base,comp,sf,spf,season,neg,rules};
+
+    const f=v=>'$'+v.toFixed(2);
+    const p=v=>(v*100).toFixed(1)+'%';
+    document.getElementById('r-cost').textContent=f(cost*(1+tariff));
+    document.getElementById('r-price').textContent=f(finalPrice);
+    document.getElementById('r-margin').textContent=p(margin);
+    document.getElementById('r-disc').textContent=p(discount);
+    document.getElementById('r-comp').textContent=f(comp);
+    document.getElementById('r-floor').textContent=f(neg.floor);
+    document.getElementById('r-target').textContent=f(neg.target);
+    document.getElementById('r-ceil').textContent=f(neg.ceil);
+
+    // Margin override indicator for breakdown row 5
+    const marginOvrActive=marginOvr!=='';
+    const marginRowLabel=marginOvrActive
+      ? `5. Margin Override — used directly`
+      : `5. Predicted Margin → clamped to tier`;
+    const marginRowSub=marginOvrActive
+      ? `Override value ${parseFloat(marginOvr).toFixed(4)} used as-is (no tier clamp). Only safety bound [0.01–0.99] applied.`
+      : `Model prediction, clamped [${rules.margin_min?'':''}${(rules.margin_min*100).toFixed(0)}%–${(rules.margin_target*100).toFixed(0)}%]`;
+
+    // Strategy formula with subscript substitution
+    const priceBeforeDiscount=finalPrice/(1-discount);
+    let strategyFormula='', stratSub='';
+    if(rules.strategy==='stable'){
+      const anchor=cost*1.3;
+      strategyFormula=`Stable: 0.7 × (Cost × 1.3) + 0.3 × CostPrice`;
+      stratSub=`= 0.7 × ${f(anchor)} + 0.3 × ${f(costPrice)} = ${f(priceBeforeDiscount)}`;
+    } else if(rules.strategy==='competitive'){
+      strategyFormula=`Competitive: (CostPrice + comp) ÷ 2`;
+      stratSub=`= (${f(costPrice)} + ${f(comp)}) ÷ 2 = ${f(priceBeforeDiscount)}`;
+    } else {
+      strategyFormula=`High-price: CostPrice × 1.15`;
+      stratSub=`= ${f(costPrice)} × 1.15 = ${f(priceBeforeDiscount)}`;
+    }
+
+    document.getElementById('r-bdown').innerHTML=`
+      <tr class="bdown-hdr"><td colspan="2">Variable Definitions</td></tr>
+      <tr class="bdown-def"><td>Cost &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— base product cost</span></td><td>${f(cost)}<span class="bdown-sub">catalog lookup: ${prod} / ${sub}</span></td></tr>
+      <tr class="bdown-def"><td>T &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— tariff rate</span></td><td>${(tariff*100).toFixed(2)}%<span class="bdown-sub">region rate (${region}) × product modifier</span></td></tr>
+      <tr class="bdown-def"><td>M &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— margin used</span></td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginOvrActive?'from Margin Override — used directly':'model prediction, clamped ['+rules.margin_min*100|0+'%–'+rules.margin_target*100|0+'%]'}</span></td></tr>
+      <tr class="bdown-def"><td>comp &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— competitor reference price</span></td><td>${f(comp)}<span class="bdown-sub">Cost × 1.25 = ${f(cost)} × 1.25</span></td></tr>
+      <tr class="bdown-def"><td>CostPrice &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— margin-derived floor</span></td><td>${f(costPrice)}<span class="bdown-sub">see row 7 below</span></td></tr>
+
+      <tr class="bdown-hdr"><td colspan="2">Step-by-Step Calculation</td></tr>
+      <tr><td>1. Client / Segment / Region</td><td style="font-size:11px">${clientName} · ${seg} · ${region}<span class="bdown-sub">Pricing Tier resolved: ${rules.tier}</span></td></tr>
+      <tr><td>2. Base Cost</td><td>${f(cost)}<span class="bdown-sub">Cost = ${f(cost)}</span></td></tr>
+      <tr><td>3. Tariff Amount<span class="bdown-sub">Cost × T</span></td><td>+${f(cost*tariff)}<span class="bdown-sub">= ${f(cost)} × ${(tariff).toFixed(4)} = +${f(cost*tariff)}</span></td></tr>
+      <tr><td>4. Cost incl. Tariff<span class="bdown-sub">Cost × (1 + T)</span></td><td>${f(cost*(1+tariff))}<span class="bdown-sub">= ${f(cost)} × (1 + ${tariff.toFixed(4)}) = ${f(cost*(1+tariff))}</span></td></tr>
+      <tr><td>${marginRowLabel}</td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginRowSub}</span></td></tr>
+      <tr><td>6. Competitor Reference Price<span class="bdown-sub">comp = Cost × 1.25</span></td><td>${f(comp)}<span class="bdown-sub">= ${f(cost)} × 1.25 = ${f(comp)}</span></td></tr>
+      <tr><td>7. Cost Price (CostPrice)<span class="bdown-sub">(Cost × (1+T)) ÷ (1−M)</span></td><td>${f(costPrice)}<span class="bdown-sub">= ${f(cost*(1+tariff))} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice)}</span></td></tr>
+      <tr><td>8. Strategy: <strong>${rules.strategy}</strong><span class="bdown-sub">${strategyFormula}</span></td><td>${f(priceBeforeDiscount)}<span class="bdown-sub">${stratSub}</span></td></tr>
+      <tr><td>9. Discount<span class="bdown-sub">qty ${qty} ${qty>500?'> 500 → full max discount':'≤ 500 → half max discount'} (${rules.tier}: max ${(rules.max_discount*100).toFixed(0)}%)</span></td><td>−${f(priceBeforeDiscount*discount)}<span class="bdown-sub">= ${f(priceBeforeDiscount)} × ${(discount*100).toFixed(2)}% = −${f(priceBeforeDiscount*discount)}</span></td></tr>
+      <tr><td><strong>10. Final Price</strong></td><td><strong>${f(finalPrice)}</strong><span class="bdown-sub">${f(priceBeforeDiscount)} − ${f(priceBeforeDiscount*discount)} = ${f(finalPrice)}</span></td></tr>`;
+
+    document.getElementById('r-scoreboard').innerHTML=sb.map(s=>{
+      const w=Math.min(100,Math.max(0,s.score));
+      return `<div class="srow"><span class="slabel">${s.factor}</span><div class="sbar-wrap"><div class="sbar" style="width:${w}%"></div></div><span class="sval2">${s.score}</span><span class="swhy">${s.why}</span></div>`;
+    }).join('');
+
+    document.getElementById('r-cs').innerHTML=cs.length?renderCsTable(cs,{seg,region,name:clientName},finalPrice,margin,cost,tariff):'<div style="color:#9ca3af;font-size:12px;padding:8px 0">No suggestions for this product.</div>';
+
+    document.getElementById('r-ai').style.display='none';
+    document.getElementById('r-ai').textContent='';
+    document.getElementById('btn-explain').disabled=false;
+    document.getElementById('btn-explain').innerHTML='✦ Generate AI Explanation';
+    document.getElementById('r-loading').style.display='none';
+    document.getElementById('r-data').style.display='block';
+    document.getElementById('compute-btn').disabled=false;
+    document.getElementById('compute-btn').textContent='Compute Dynamic Price & Ask AI';
+    // Reset save button for new computation
+    document.getElementById('btn-save-deal').disabled=false;
+    document.getElementById('btn-save-deal').textContent='💾 Save Deal to Dashboard';
+    document.getElementById('save-deal-confirm').style.display='none';
+  },600);
+}
+
+// ════════════════════════════════════════════════
+// AI EXPLANATION — exact prompt from notebook's explain()
+// ════════════════════════════════════════════════
+async function generateExplanation(){
+  if(!lastState) return;
+  const {row,finalPrice,discount,margin,costPrice,base,comp,sf,spf,season,neg,rules}=lastState;
+  const btn=document.getElementById('btn-explain');
+  const box=document.getElementById('r-ai');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Asking Gemini 2.5 Flash...';
+  box.style.display='block'; box.textContent='Generating explanation...';
+
+  const prompt=`You are a pricing analyst. Given this deal, identify the TOP 3 factors driving the final price and write a brief 2-sentence conclusion.
+
+Product: ${row.prod} (${row.sub}) | Region: ${row.region} | Segment: ${row.seg} | Tier: ${rules.tier}
+Cost: $${row.cost.toFixed(2)} | Tariff: ${(row.tariff*100).toFixed(1)}% | Elasticity: ${row.elasticity.toFixed(2)}
+Inventory: ${row.inv} units | Qty: ${row.qty} | Season Factor: ${sf.toFixed(2)} | SPF: ${spf.toFixed(2)}
+Margin Used: ${(margin*100).toFixed(1)}% (${row.marginOverridden?'override':'model'}) | Strategy: ${rules.strategy}
+Competitor Price: $${comp.toFixed(2)} | Final Price: $${finalPrice.toFixed(2)} | Discount: ${(discount*100).toFixed(1)}%
+
+Format:
+**Top Cost Drivers:**
+1. [Factor]: [1 sentence explanation with numbers]
+2. [Factor]: [1 sentence explanation with numbers]
+3. [Factor]: [1 sentence explanation with numbers]
+
+**Conclusion:** [2 sentences: pricing outcome + recommendation]`;
+
+  try {
+    const text=await callGemini(prompt);
+    // Parse structured response into visual cards
+    box.innerHTML=renderExplainCards(text);
+  } catch(e) {
+    box.innerHTML=`<div style="padding:12px;color:#dc2626;font-size:12px">⚠ Gemini error: ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.innerHTML='✦ Regenerate AI Explanation';
+}
+
+function renderExplainCards(text){
+  const driverMatches=[...text.matchAll(/\d+\.\s+\*?\*?([^:*\n]+)\*?\*?:\s*([^\n]+)/g)];
+  const concMatch=text.match(/(?:\*{0,2})Conclusion(?:\*{0,2}):?\s*\n?\s*([^]*)/i);
+  const drivers=driverMatches.slice(0,3);
+  const concl=concMatch?concMatch[1].trim().replace(/\n+/g,' ').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>'):'';
+  const rankColors=['#0f2942','#2563eb','#059669'];
+  const driversHtml=drivers.length
+    ?drivers.map((m,i)=>`<div class="ai-driver"><div class="ai-driver-rank" style="background:${rankColors[i]}">${i+1}</div><div class="ai-driver-text"><span class="ai-driver-label">${m[1].trim()}</span> — ${m[2].trim()}</div></div>`).join('')
+    :`<div class="ai-driver"><div class="ai-driver-rank">!</div><div class="ai-driver-text">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n+/g,' ')}</div></div>`;
+  return `<div class="ai-explain-card"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px">Top Price Drivers</div>${driversHtml}</div>${concl?`<div class="ai-conclusion"><strong>▶ Conclusion</strong> — ${concl}</div>`:''}`;
+}
+
+// ════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// SAVE DEAL TO DASHBOARD (manual, explicit)
+// ════════════════════════════════════════════════
+function saveDealFromResults(){
+  if(!lastState) return;
+  const {row,finalPrice,discount,margin,neg}=lastState;
+  saveDeal({
+    customer:row.customer,segment:row.seg,region:row.region,product:row.prod,subgroup:row.sub,
+    quantity:row.qty,month:row.month,season:row.season,
+    cost:+row.cost.toFixed(2),tariff:+row.tariff.toFixed(4),
+    margin:+margin.toFixed(4),discount:+discount.toFixed(4),
+    final_price:+finalPrice.toFixed(2),deal_value:+(finalPrice*row.qty).toFixed(2),
+    floor:+neg.floor.toFixed(2),target:+neg.target.toFixed(2),ceil:+neg.ceil.toFixed(2)
+  });
+  const btn=document.getElementById('btn-save-deal');
+  btn.disabled=true; btn.textContent='✓ Saved'; btn.style.background='#6b7280';
+  document.getElementById('save-deal-confirm').style.display='block';
+}
+
+const DC={};
+function destroyChart(k){ if(DC[k]){DC[k].destroy();delete DC[k];} }
+
+function renderDash(){
+  const all=loadDeals();
+  const src=document.getElementById('df-src')?.value||'baseline';
+  const pf=document.getElementById('df-prod')?.value||'All';
+  const rf=document.getElementById('df-reg')?.value||'All';
+  const sf=document.getElementById('df-seg')?.value||'All';
+  const deals=all.filter(d=>(pf==='All'||d.product===pf)&&(rf==='All'||d.region===rf)&&(sf==='All'||d.segment===sf));
+  const base=getBaseline().filter(r=>(pf==='All'||r.product===pf)&&(rf==='All'||r.region===rf));
+
+  const isDeals=(src==='deals');
+  const isCombined=(src==='combined');
+
+  // Show correct KPI group and chart group
+  document.getElementById('kpi-baseline').style.display=isDeals?'none':'grid';
+  document.getElementById('kpi-deals').style.display=isDeals?'grid':'none';
+  document.getElementById('charts-baseline').style.display=isDeals?'none':'block';
+  document.getElementById('charts-deals').style.display=isDeals?'block':'none';
+
+  document.getElementById('d-rcount').textContent=isDeals
+    ? `${deals.length} deal${deals.length!==1?'s':''}`
+    : `${base.length} baseline row${base.length!==1?'s':''}${isCombined&&deals.length?' + '+deals.length+' deal'+(deals.length!==1?'s':''):''}`;
+
+  if(isDeals){
+    // ── Deals KPIs ──────────────────────────────────────────────────────────
+    document.getElementById('d-k1').textContent=deals.length;
+    const tv=deals.reduce((s,d)=>s+d.deal_value,0);
+    document.getElementById('d-k2').textContent=tv>=1e6?'$'+(tv/1e6).toFixed(2)+'M':('$'+(tv/1e3).toFixed(1)+'K');
+    const am=deals.length?deals.reduce((s,d)=>s+d.margin,0)/deals.length:0;
+    const ad=deals.length?deals.reduce((s,d)=>s+d.discount,0)/deals.length:0;
+    document.getElementById('d-k3').textContent=deals.length?(am*100).toFixed(1)+'%':'—';
+    const k3c=document.getElementById('d-k3c');
+    const k3s=document.getElementById('d-k3s');
+    if(deals.length&&am<0.60){k3c.className='kpi-card warn';k3s.textContent='▲ Below 60% threshold';}
+    else{k3c.className='kpi-card';k3s.textContent='\u00a0';}
+    document.getElementById('d-k4').textContent=deals.length?(ad*100).toFixed(1)+'%':'—';
+
+  } else if(isCombined){
+    // ── Baseline + Deals KPIs — merge quantities/prices ────────────────────
+    const baseQty=base.reduce((s,r)=>s+r.demand,0);
+    const dealQty=deals.reduce((s,d)=>s+d.quantity,0);
+    document.getElementById('d-bk1').textContent=(baseQty+dealQty).toLocaleString();
+    const avgInv=base.length?Math.round(base.reduce((s,r)=>s+r.inventory,0)/base.length):0;
+    document.getElementById('d-bk2').textContent=avgInv.toLocaleString();
+    // Tariff: weighted avg of base tariffs + deal tariffs
+    const allT=[...base.map(r=>r.tariff),...deals.map(d=>d.tariff)];
+    const avgT=allT.length?allT.reduce((a,b)=>a+b,0)/allT.length:0;
+    document.getElementById('d-bk3').textContent=(avgT*100).toFixed(1)+'%';
+    // Price delta: use deal final prices vs catalog competitor price
+    const ourPrices=[...base.map(r=>r.ourPrice),...deals.map(d=>d.final_price)];
+    const compPrices=[...base.map(r=>r.compPrice),...deals.map(d=>d.cost*1.25)];
+    const avgOur=ourPrices.length?ourPrices.reduce((a,b)=>a+b,0)/ourPrices.length:0;
+    const avgComp=compPrices.length?compPrices.reduce((a,b)=>a+b,0)/compPrices.length:0;
+    const delta=avgOur-avgComp;
+    document.getElementById('d-bk4').textContent=(delta>=0?'+':'')+'$'+delta.toFixed(2);
+
+  } else {
+    // ── Baseline-only KPIs ─────────────────────────────────────────────────
+    document.getElementById('d-bk1').textContent=base.reduce((s,r)=>s+r.demand,0).toLocaleString();
+    document.getElementById('d-bk2').textContent=base.length?Math.round(base.reduce((s,r)=>s+r.inventory,0)/base.length).toLocaleString():'—';
+    const avgT=base.length?base.reduce((s,r)=>s+r.tariff,0)/base.length:0;
+    document.getElementById('d-bk3').textContent=(avgT*100).toFixed(1)+'%';
+    const avgOur=base.length?base.reduce((s,r)=>s+r.ourPrice,0)/base.length:0;
+    const avgComp=base.length?base.reduce((s,r)=>s+r.compPrice,0)/base.length:0;
+    const delta=avgOur-avgComp;
+    document.getElementById('d-bk4').textContent=(delta>=0?'+':'')+'$'+delta.toFixed(2);
+  }
+
+  buildCharts(deals, base, src);
+
+  // Deals table (always shown regardless of source)
+  if(!deals.length){
+    document.getElementById('d-deals').innerHTML='<div class="no-deals">No deals saved yet. Compute a price in the Pricing Deal Builder and click "Save Deal to Dashboard".</div>';
+  } else {
+    document.getElementById('d-deals').innerHTML=`<table>
+      <thead><tr><th>Time</th><th>Customer</th><th>Seg</th><th>Region</th><th>Product</th><th>SKU</th>
+        <th>Qty</th><th>Cost</th><th>Margin</th><th>Disc</th><th>Final Price</th><th>Deal Value</th></tr></thead>
+      <tbody>${deals.map(d=>`<tr>
+        <td style="white-space:nowrap;font-size:11px;color:#9ca3af">${new Date(d.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+        <td style="white-space:nowrap">${d.customer}</td>
+        <td><span class="seg-${(d.segment||'S')[0]}">${d.segment}</span></td>
+        <td style="font-size:11px">${d.region}</td>
+        <td>${d.product}</td><td style="font-size:11px">${d.subgroup}</td>
+        <td style="text-align:right">${d.quantity}</td>
+        <td>$${d.cost.toFixed(0)}</td>
+        <td>${(d.margin*100).toFixed(1)}%</td>
+        <td>${(d.discount*100).toFixed(1)}%</td>
+        <td><strong>$${d.final_price.toFixed(2)}</strong></td>
+        <td>$${(d.deal_value/1000).toFixed(1)}K</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+}
+
+function buildCharts(deals, base, src){
+  const F={family:'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',size:11};
+  const PAL=['#0f2942','#2563eb','#7c3aed','#059669','#dc2626','#f59e0b'];
+  const PRODS=Object.keys(CATALOG);
+  const REGS=['N_AMERICA','EMENA','APAC','CIS'];
+  const isDeals=(src==='deals');
+  const isCombined=(src==='combined');
+
+  if(isDeals){
+    // -- Deals source: deal-based charts with empty overlay
+    const hasDeals=deals.length>0;
+    const banner=document.getElementById('no-deals-banner');
+    banner.classList.toggle('visible',!hasDeals);
+    ['prod','reg','seg','scatter'].forEach(k=>{const ov=document.getElementById('ov-'+k);if(ov) ov.style.display=hasDeals?'none':'flex';});
+
+    // 1. Deals by Product
+    destroyChart('prod');
+    const pm={}; PRODS.forEach(p=>pm[p]=0);
+    deals.forEach(d=>{if(pm[d.product]!==undefined) pm[d.product]++;});
+    DC['prod']=new Chart(document.getElementById('dc-prod'),{type:'bar',data:{labels:PRODS,datasets:[{data:PRODS.map(p=>pm[p]),backgroundColor:PAL[0],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' deal'+(c.parsed.y!==1?'s':'')}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',stepSize:1}}}}});
+
+    // 2. Revenue by Region (deal_value = final_price x qty)
+    destroyChart('reg');
+    const rm={}; REGS.forEach(r=>rm[r]=0);
+    deals.forEach(d=>{if(rm[d.region]!==undefined) rm[d.region]+=d.deal_value;});
+    DC['reg']=new Chart(document.getElementById('dc-reg'),{type:'bar',data:{labels:REGS,datasets:[{data:REGS.map(r=>+rm[r].toFixed(2)),backgroundColor:PAL[3],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+(c.parsed.y/1000).toFixed(2)+'K'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280'}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>'$'+(v/1000).toFixed(0)+'K'}}}}});
+
+    // 3. Avg Margin by Segment
+    destroyChart('seg');
+    const sm={};deals.forEach(d=>{if(!sm[d.segment])sm[d.segment]=[];sm[d.segment].push(d.margin*100);});
+    const sl=Object.keys(sm);
+    DC['seg']=new Chart(document.getElementById('dc-seg'),{type:'bar',data:{labels:sl.length?sl:['—'],datasets:[{data:sl.length?sl.map(s=>+(sm[s].reduce((a,b)=>a+b,0)/sm[s].length).toFixed(2)):[0],backgroundColor:sl.map((_,i)=>PAL[i%PAL.length]).length?sl.map((_,i)=>PAL[i%PAL.length]):[PAL[0]],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280'}},y:{min:0,max:100,grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}}}}});
+
+    // 4. Price vs Cost scatter by resolved tier
+    destroyChart('scatter');
+    const tc={'Standard':'#2563eb','Premium':'#7c3aed','Competitor':'#dc2626'};
+    const tiers=[...new Set(deals.map(d=>segToTier(d.segment)))];
+    DC['scatter']=new Chart(document.getElementById('dc-scatter'),{type:'scatter',data:{datasets:tiers.length?tiers.map(tier=>({label:tier,data:deals.filter(d=>segToTier(d.segment)===tier).map(d=>({x:+d.cost.toFixed(2),y:+d.final_price.toFixed(2)})),backgroundColor:(tc[tier]||'#6b7280')+'80',borderColor:tc[tier]||'#6b7280',pointRadius:5})):[{label:'No deals',data:[],backgroundColor:'transparent',borderColor:'transparent',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:F,color:'#6b7280',boxWidth:10}}},scales:{x:{title:{display:true,text:'Base Cost ($)',font:F},grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280'}},y:{title:{display:true,text:'Final Price ($)',font:F},grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280'}}}}});
+
+  } else {
+    // -- Baseline / Baseline+Deals: catalog-derived charts
+    const byReg={};REGS.forEach(r=>byReg[r]={demand:0,inv:0,invN:0});
+    const byProd={};PRODS.forEach(p=>byProd[p]={demand:0,ourSum:0,ourN:0,compSum:0,compN:0,tariffSum:0,tariffN:0,rev:0});
+    base.forEach(row=>{
+      if(byReg[row.region]){byReg[row.region].demand+=row.demand;byReg[row.region].inv+=row.inventory;byReg[row.region].invN++;}
+      if(byProd[row.product]){byProd[row.product].demand+=row.demand;byProd[row.product].ourSum+=row.ourPrice;byProd[row.product].ourN++;byProd[row.product].compSum+=row.compPrice;byProd[row.product].compN++;byProd[row.product].tariffSum+=row.tariff;byProd[row.product].tariffN++;byProd[row.product].rev+=row.ourPrice*row.demand;}
+    });
+    // Deal overlay aggregates (combined only)
+    const dByReg={};REGS.forEach(r=>dByReg[r]=0);
+    const dByProd={};PRODS.forEach(p=>dByProd[p]={qty:0,ps:0,pn:0,rev:0});
+    if(isCombined) deals.forEach(d=>{
+      if(dByReg[d.region]!==undefined) dByReg[d.region]+=d.quantity;
+      if(dByProd[d.product]!==undefined){dByProd[d.product].qty+=d.quantity;dByProd[d.product].ps+=d.final_price;dByProd[d.product].pn++;dByProd[d.product].rev+=d.deal_value;}
+    });
+
+    // 1. Demand by Region
+    destroyChart('demreg');
+    const demDs=isCombined?[{label:'Baseline',data:REGS.map(r=>byReg[r].demand),backgroundColor:PAL[0],borderRadius:4},{label:'Deals',data:REGS.map(r=>dByReg[r]),backgroundColor:PAL[5],borderRadius:4}]:[{label:'Baseline',data:REGS.map(r=>byReg[r].demand),backgroundColor:PAL[0],borderRadius:4}];
+    DC['demreg']=new Chart(document.getElementById('dc-dem-reg'),{type:'bar',data:{labels:REGS,datasets:demDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:isCombined,position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString()+' units'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280'}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>(v/1000).toFixed(0)+'K'}}}}});
+
+    // 2. Inventory by Region (baseline only)
+    destroyChart('invreg');
+    DC['invreg']=new Chart(document.getElementById('dc-inv-reg'),{type:'bar',data:{labels:REGS,datasets:[{data:REGS.map(r=>byReg[r].invN?Math.round(byReg[r].inv/byReg[r].invN):0),backgroundColor:PAL[3],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' units avg/SKU'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280'}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280'}}}}});
+
+    // 3. Demand Distribution doughnut (baseline+deals qty if combined)
+    destroyChart('dpie');
+    const pVals=PRODS.map(p=>byProd[p].demand+(isCombined?dByProd[p].qty:0));
+    const pTot=pVals.reduce((a,b)=>a+b,0)||1;
+    DC['dpie']=new Chart(document.getElementById('dc-pie'),{type:'doughnut',data:{labels:PRODS,datasets:[{data:pVals,backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:F,color:'#374151',boxWidth:10,padding:8}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toLocaleString()} (${(c.parsed/pTot*100).toFixed(1)}%)`}}}}});
+
+    // 4. Our Price vs Competitor (catalog; combined adds avg deal price as 3rd bar)
+    destroyChart('dprice');
+    const prDs=[{label:'Catalog Price',data:PRODS.map(p=>byProd[p].ourN?+(byProd[p].ourSum/byProd[p].ourN).toFixed(2):0),backgroundColor:PAL[1],borderRadius:3},{label:'Competitor',data:PRODS.map(p=>byProd[p].compN?+(byProd[p].compSum/byProd[p].compN).toFixed(2):0),backgroundColor:PAL[4],borderRadius:3}];
+    if(isCombined) prDs.splice(1,0,{label:'Avg Deal Price',data:PRODS.map(p=>dByProd[p].pn?+(dByProd[p].ps/dByProd[p].pn).toFixed(2):null),backgroundColor:PAL[2],borderRadius:3});
+    DC['dprice']=new Chart(document.getElementById('dc-price'),{type:'bar',data:{labels:PRODS,datasets:prDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.parsed.y!=null?c.dataset.label+': $'+c.parsed.y.toFixed(2):'no deals'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>'$'+v}}}}});
+
+    // 5. Tariff by Product (catalog fixed)
+    destroyChart('dtariff');
+    DC['dtariff']=new Chart(document.getElementById('dc-tariff'),{type:'bar',data:{labels:PRODS,datasets:[{data:PRODS.map(p=>byProd[p].tariffN?+(byProd[p].tariffSum/byProd[p].tariffN*100).toFixed(2):0),backgroundColor:PAL[2],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}}}}});
+
+    // 6. Revenue by Product (baseline; combined stacks deal revenue)
+    destroyChart('drev');
+    const rvDs=isCombined?[{label:'Baseline',data:PRODS.map(p=>+byProd[p].rev.toFixed(0)),backgroundColor:PAL[0],borderRadius:0,stack:'s'},{label:'Deals',data:PRODS.map(p=>+dByProd[p].rev.toFixed(0)),backgroundColor:PAL[5],borderRadius:4,stack:'s'}]:[{data:PRODS.map(p=>+byProd[p].rev.toFixed(0)),backgroundColor:PAL[5],borderRadius:4}];
+    DC['drev']=new Chart(document.getElementById('dc-rev'),{type:'bar',data:{labels:PRODS,datasets:rvDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:isCombined,position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': $'+(c.parsed.y/1000).toFixed(1)+'K'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>'$'+(v/1000).toFixed(0)+'K'}}}}});
+  }
+}
+function applyFilters(){ renderDash(); }
+
+// ════════════════════════════════════════════════
+// DASHBOARD AI INSIGHTS (Gemini)
+// ════════════════════════════════════════════════
+async function generateInsights(){
+  const deals=loadDeals();
+  const btn=document.getElementById('btn-insights');
+  const body=document.getElementById('ins-body');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Generating...';
+  body.className='ins-body'; body.textContent='Analysing portfolio...';
+
+  if(!deals.length){
+    body.className='ins-body empty';
+    body.textContent='Save at least one deal to generate insights.';
+    btn.disabled=false; btn.textContent='Generate Insights'; return;
+  }
+
+  const tv=deals.reduce((s,d)=>s+d.deal_value,0);
+  const am=(deals.reduce((s,d)=>s+d.margin,0)/deals.length*100).toFixed(1);
+  const atRisk=deals.filter(d=>d.margin<0.60).length;
+  const topProd=Object.entries(deals.reduce((m,d)=>{m[d.product]=(m[d.product]||0)+d.deal_value;return m},{})).sort((a,b)=>b[1]-a[1])[0];
+  const topReg=Object.entries(deals.reduce((m,d)=>{m[d.region]=(m[d.region]||0)+d.deal_value;return m},{})).sort((a,b)=>b[1]-a[1])[0];
+
+  const prompt=`You are a B2B pricing strategist. Analyze this deal portfolio and return EXACTLY 3 action cards in JSON array format. No extra text, only valid JSON.
+
+Data: ${deals.length} deals | Revenue $${(tv/1000).toFixed(1)}K | Avg margin ${am}% | At-risk (margin<60%): ${atRisk} | Top product: ${topProd?topProd[0]+' $'+(topProd[1]/1000).toFixed(1)+'K':'N/A'} | Top region: ${topReg?topReg[0]+' $'+(topReg[1]/1000).toFixed(1)+'K':'N/A'}
+
+Return this exact JSON structure:
+[
+  {"urgency":"HIGH|MED|LOW","title":"Action title (5 words max)","insight":"1 sentence: what the data shows","action":"1 sentence: what to do NOW","impact":"Expected outcome with % or $","cta":"Button label (2-3 words)"},
+  ...
+]`;
+
+  try {
+    const text=await callGemini(prompt);
+    const clean=text.replace(/```json|```/g,'').trim();
+    let actions;
+    try{ actions=JSON.parse(clean); }
+    catch(e){ actions=null; }
+    body.className='ins-body';
+    body.innerHTML=actions?renderInsightCards(actions):renderInsightFallback(text);
+  } catch(e) {
+    body.className='ins-body';
+    body.innerHTML=`<div style="padding:12px;color:#dc2626;font-size:12px">⚠ Gemini error: ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.textContent='↺ Refresh Insights';
+}
+
+function renderInsightCards(actions){
+  return `<div class="ai-actions">${actions.map(a=>`<div class="ai-action-card">
+      <div class="ai-action-title">${a.title}</div>
+      <div class="ai-action-body">
+        <strong>📊 Insight:</strong> ${a.insight}<br>
+        <strong>⚡ Action:</strong> ${a.action}<br>
+        <strong>📈 Impact:</strong> ${a.impact}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderInsightFallback(text){
+  // Plain text fallback if JSON parse fails
+  return `<div class="ai-action-card"><div class="ai-action-body">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div></div>`;
+}
+
+// ════════════════════════════════════════════════
+// FORM INTERACTIONS
+// ════════════════════════════════════════════════
+let tariffOvr=false;
+
+// Resolve segment text → tier and show in the Pricing Tier field + pill
+function onClientInput(){ /* just triggers tariff refresh on any input if needed */ }
+function onSegInput(){
+  const seg=document.getElementById('f-seg').value||'';
+  const rules=segRules(seg);
+  document.getElementById('f-tier').value=`${rules.tier} (${rules.strategy}, max disc ${(rules.max_discount*100).toFixed(0)}%)`;
+  document.getElementById('f-maxdisc').value=`${(rules.max_discount*100).toFixed(0)}% (${rules.tier} tier)`;
+  const pill=document.getElementById('cust-pill-row');
+  if(seg.trim()){
+    document.getElementById('cust-pill-txt').textContent=`Tier: ${rules.tier} · Strategy: ${rules.strategy} · Margin ${(rules.margin_min*100).toFixed(0)}%–${(rules.margin_target*100).toFixed(0)}% · Max discount ${(rules.max_discount*100).toFixed(0)}%`;
+    pill.style.display='block';
+  } else {
+    pill.style.display='none';
+  }
+}
+function onRegionChange(){
+  tariffOvr=false;
+  document.getElementById('tariff-ovr').style.display='none';
+  refreshTariff();
+}
+function onProdChange(){
+  tariffOvr=false;
+  document.getElementById('tariff-ovr').style.display='none';
+  const prod=document.getElementById('f-prod').value;
+  const sel=document.getElementById('f-sub');
+  sel.innerHTML='<option value="">Select...</option>';
+  if(prod&&CATALOG[prod]){
+    CATALOG[prod].forEach(sg=>{const o=document.createElement('option');o.value=sg;o.textContent=sg;sel.appendChild(o);});
+    sel.value=CATALOG[prod][0];
+  }
+  document.getElementById('f-cost').value=prod&&CATALOG[prod]?getCost(prod,CATALOG[prod][0]).toFixed(2):'';
+  if(!tariffOvr) refreshTariff();
+}
+function onSubChange(){
+  const prod=document.getElementById('f-prod').value;
+  const sub=document.getElementById('f-sub').value;
+  if(prod&&sub) document.getElementById('f-cost').value=getCost(prod,sub).toFixed(2);
+  if(!tariffOvr) refreshTariff();
+}
+function refreshTariff(){
+  const region=document.getElementById('f-reg').value;
+  const prod=document.getElementById('f-prod').value;
+  const sub=document.getElementById('f-sub').value;
+  if(region&&prod&&sub){
+    document.getElementById('f-tariff').value=getTariff(region,prod,sub).toFixed(4);
+  }
+}
+function onTariffEdit(){
+  tariffOvr=true;
+  document.getElementById('tariff-ovr').style.display='block';
+}
+const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function onMonthChange(){
+  const m=+document.getElementById('f-month').value;
+  document.getElementById('f-month-lbl').textContent=`${MNAMES[m-1]} (${m})`;
+  document.getElementById('f-season').value=getSeason(m);
+}
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='dashboard') renderDash();
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+(function(){
+  document.getElementById('rec-count').style.display='none'; // no fixed customer list
+  onMonthChange();
+  updateCount();
+})();
+</script>
+</body>
+</html>
