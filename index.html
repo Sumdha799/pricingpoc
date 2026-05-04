@@ -573,7 +573,7 @@ function buildAnalyticsCharts(perProd,perReg){
   AC['tariff']=new Chart(document.getElementById('ac-tariff'),{type:'bar',data:{labels:prodLabels,datasets:regsT.map((r,i)=>({label:r,data:prodLabels.map(p=>{const subs=CATALOG[p];return +(subs.map(s=>getTariff(r,p,s)).reduce((a,b)=>a+b,0)/subs.length*100).toFixed(2);}),backgroundColor:PAL[i%PAL.length],borderRadius:3}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+'%'}}},scales:{x:{grid:{display:false},ticks:{font:F,color:'#6b7280',maxRotation:30}},y:{grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}}}}});
 }
 // ════════════════════════════════════════════════
-const GKEY = 'AIzaSyDTY3Ic5b6WnSzlX2ncd2JmKXMrC2ysJNQ';
+const GKEY = 'AIzaSyB3qM4WXY6OVycSNm7FeywuV4oC5rc_YzU';
 const GMODEL = 'gemini-2.5-flash';
 async function callGemini(prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GMODEL}:generateContent?key=${GKEY}`;
