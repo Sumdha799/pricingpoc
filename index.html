@@ -170,6 +170,9 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
 .btn-confirm-no{padding:3px 10px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:4px;font-size:11px;cursor:pointer}
 .btn-confirm-no:hover{background:#f9fafb}
 .btn-legend{font-size:11px;padding:3px 9px;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;color:#374151;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-tariff{font-size:11px;padding:3px 9px;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;color:#374151;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-tariff.active{background:#0f2942;color:white;border-color:#0f2942}
+.btn-tariff:hover:not(.active){background:#e5e9f0}
 .btn-legend:hover{background:#e5e9f0}
 .legend-panel{background:#f8fafc;border:1px solid #e5e9f0;border-radius:6px;padding:12px 14px;margin-bottom:10px;font-size:12px}
 .legend-panel table{width:100%;border-collapse:collapse}
@@ -200,6 +203,7 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
   <div class="header-tabs">
     <button class="tab-btn active" onclick="switchTab('builder',this)">Pricing Deal Builder</button>
     <button class="tab-btn" onclick="switchTab('dashboard',this)">Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('tariff',this)">Tariff Impact</button>
   </div>
   <div class="header-info"><span id="rec-count">—</span> customers &nbsp;·&nbsp; <span id="deal-count">0</span> deals</div>
 </div>
@@ -332,26 +336,31 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
             </div>
           </div>
           <div class="r-section">
-            <h3>Negotiation Range</h3>
+            <h3>Price Reference</h3>
             <div class="neg-row">
-              <div class="neg-card floor"><div class="nl">Floor Price</div><div class="np" id="r-floor">—</div><div class="nn">Walk-away minimum</div></div>
-              <div class="neg-card target"><div class="nl">Final Deal Price ★</div><div class="np" id="r-target">—</div><div class="nn">Optimal ask price</div></div>
-              <div class="neg-card ceil"><div class="nl">Ceiling Price</div><div class="np" id="r-ceil">—</div><div class="nn">Maximum achievable</div></div>
+              <div class="neg-card floor"><div class="nl">Cost Price</div><div class="np" id="r-floor">—</div></div>
+              <div class="neg-card target"><div class="nl">List Price ★</div><div class="np" id="r-target">—</div></div>
+              <div class="neg-card ceil"><div class="nl">Final Deal Price</div><div class="np" id="r-ceil">—</div></div>
             </div>
           </div>
           <div class="r-section">
             <h3 style="display:flex;align-items:center;justify-content:space-between">
               Price Calculation Breakdown
-              <button class="btn-legend" onclick="toggleStrategyLegend()" title="Pricing strategy formulas">ⓘ Strategies</button>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn-tariff active" id="btn-after-tariff" onclick="showTariffMode('after')">After Tariff</button>
+                <button class="btn-tariff" id="btn-before-tariff" onclick="showTariffMode('before')">Before Tariff</button>
+                <button class="btn-legend" onclick="toggleStrategyLegend()" title="Pricing strategy formulas">ⓘ Strategies</button>
+              </div>
             </h3>
             <div class="legend-panel" id="strategy-legend-panel" style="display:none">
               <table>
                 <tr><td><strong>Stable</strong></td><td>Used for Premium-tier customers. Anchors price partly to cost, resisting market volatility.<br><span style="font-family:monospace;font-size:11px">Price = 0.7 × (Cost × 1.3) + 0.3 × Cost Price</span><br><span style="color:#9ca3af;font-size:10px">Cost × 1.3 = cost-anchor (30% markup). Cost Price = margin-derived floor. Blend = 70% anchor + 30% floor.</span></td></tr>
-                <tr><td><strong>Competitive</strong></td><td>Used for Standard-tier customers. Splits the difference between your Cost Price and the market rate.<br><span style="font-family:monospace;font-size:11px">Price = (Cost Price + comp) ÷ 2</span><br><span style="color:#9ca3af;font-size:10px">comp = Competitor reference price = Cost × 1.25. Midpoint keeps you competitive without sacrificing margin.</span></td></tr>
+                <tr><td><strong>Competitive</strong></td><td>Used for Standard-tier customers. Price is a blend of Cost Price and Comp — positions you at the midpoint of your floor and the market rate.<br><span style="font-family:monospace;font-size:11px">Price = blend of Cost Price and Comp</span></td></tr>
                 <tr><td><strong>High-price</strong></td><td>Used for Wholesale/Competitor-tier. Prices above the Cost Price to capture maximum margin from bulk buyers.<br><span style="font-family:monospace;font-size:11px">Price = Cost Price × 1.15</span><br><span style="color:#9ca3af;font-size:10px">Adds a 15% premium on top of the margin-derived Cost Price. Justified by volume commitments.</span></td></tr>
               </table>
             </div>
-            <table class="bdown"><tbody id="r-bdown"></tbody></table>
+            <table class="bdown" id="r-bdown-after"><tbody id="r-bdown"></tbody></table>
+            <table class="bdown" id="r-bdown-before" style="display:none"><tbody id="r-bdown-pre"></tbody></table>
           </div>
           <div class="r-section">
             <h3 style="display:flex;align-items:center;justify-content:space-between">
@@ -479,14 +488,53 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
     <div class="ins-body empty" id="ins-body">Click "Generate Insights" to receive AI-powered prescriptive recommendations based on your saved deals portfolio.</div>
   </div>
 </div>
+  <div id="tab-tariff" class="tab-panel">
+    <div class="filters-bar">
+      <div class="card-label" style="margin-bottom:0;white-space:nowrap">Tariff Impact</div>
+      <div class="fg"><span class="fl">Data Source</span>
+        <select id="tf-src" onchange="renderTariff()">
+          <option value="baseline">Baseline</option>
+          <option value="combined">Baseline + Deals</option>
+          <option value="deals">Deals</option>
+        </select>
+      </div>
+      <div class="fg"><span class="fl">Product</span>
+        <select id="tf-prod" onchange="renderTariff()"><option>All</option>
+          <option>Smartphone</option><option>Laptop</option><option>TV</option>
+          <option>Air Conditioner</option><option>Accessory</option><option>Networking Equipment</option>
+        </select>
+      </div>
+      <div class="fg"><span class="fl">Region</span>
+        <select id="tf-reg" onchange="renderTariff()"><option>All</option>
+          <option>N_AMERICA</option><option>EMENA</option><option>APAC</option><option>CIS</option>
+        </select>
+      </div>
+      <div class="fg"><span class="fl">Segment</span>
+        <select id="tf-seg" onchange="renderTariff()"><option>All</option>
+          <option>Premium</option><option>Standard</option><option>Competitor</option>
+        </select>
+      </div>
+      <div class="fr"><span class="rcount" id="tf-rcount">—</span></div>
+    </div>
+    <div class="charts-grid" style="grid-template-columns:1fr">
+      <div class="chart-card">
+        <div class="chart-title" id="tf-chart-title">Revenue &amp; Margin — Tariff Impact</div>
+        <div class="chart-wrap" style="height:420px"><canvas id="tc-dual"></canvas></div>
+      </div>
+    </div>
+    <div class="charts-grid" style="grid-template-columns:1fr">
+      <div class="chart-card">
+        <div class="chart-title">Tariff Performance vs Margin Exposure</div>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:6px">X = Tariff Rate (%) · Y = Margin Loss if price not adjusted · Size = Revenue · Colour = Product</div>
+        <div class="chart-wrap" style="height:380px"><canvas id="tc-scatter"></canvas></div>
+      </div>
+    </div>
+    <div id="tf-empty" style="display:none;text-align:center;padding:40px;color:#9ca3af;font-size:13px;font-style:italic">
+      No deals saved yet — switch to Baseline or save deals from the Pricing Deal Builder.
+    </div>
+  </div>
+
 </div><!-- end .main -->
-
-
-
-
-
-
-
 
 <script>
 // ════════════════════════════════════════════════
@@ -501,7 +549,7 @@ function baseInventory_a(prod,sub,region){
 }
 function baseDemand_a(prod,sub,region){
   let spfSum=0,sfSum=0;
-  for(let m=1;m<=12;m++){spfSum+=getSPF(prod,sub,region,m);sfSum+=getSeasonMult(prod,m);}
+  for(let m=1;m<=12;m++){spfSum+=getSPF(prod,sub,region,m);sfSum+=getSeasonMult(prod,m,sub,region);}
   const regionMult={N_AMERICA:1.2,EMENA:1.0,APAC:1.3,CIS:0.8}[region]||1;
   return Math.round(spfSum/12*sfSum/12*regionMult*180);
 }
@@ -591,56 +639,56 @@ async function callGemini(prompt) {
 
 // 50 customers from notebook (np.random.seed(42))
 const CUSTOMERS = [
-  {name:"Customer_0",seg:"Competitor",region:"N_AMERICA",val:37454},
-  {name:"Customer_1",seg:"Standard",region:"APAC",val:95071},
-  {name:"Customer_2",seg:"Standard",region:"EMENA",val:73199},
-  {name:"Customer_3",seg:"Premium",region:"CIS",val:59865},
-  {name:"Customer_4",seg:"Competitor",region:"N_AMERICA",val:15601},
-  {name:"Customer_5",seg:"Standard",region:"APAC",val:15600},
-  {name:"Customer_6",seg:"Premium",region:"EMENA",val:58084},
-  {name:"Customer_7",seg:"Competitor",region:"CIS",val:86617},
-  {name:"Customer_8",seg:"Competitor",region:"N_AMERICA",val:70807},
-  {name:"Customer_9",seg:"Standard",region:"APAC",val:20921},
-  {name:"Customer_10",seg:"Premium",region:"EMENA",val:18183},
-  {name:"Customer_11",seg:"Standard",region:"CIS",val:18340},
-  {name:"Customer_12",seg:"Competitor",region:"N_AMERICA",val:30424},
-  {name:"Customer_13",seg:"Premium",region:"APAC",val:52475},
-  {name:"Customer_14",seg:"Standard",region:"EMENA",val:43194},
-  {name:"Customer_15",seg:"Competitor",region:"CIS",val:29122},
-  {name:"Customer_16",seg:"Premium",region:"N_AMERICA",val:61185},
-  {name:"Customer_17",seg:"Standard",region:"APAC",val:13949},
-  {name:"Customer_18",seg:"Competitor",region:"EMENA",val:29214},
-  {name:"Customer_19",seg:"Premium",region:"CIS",val:36636},
-  {name:"Customer_20",seg:"Standard",region:"N_AMERICA",val:45606},
-  {name:"Customer_21",seg:"Competitor",region:"APAC",val:78518},
-  {name:"Customer_22",seg:"Premium",region:"EMENA",val:19967},
-  {name:"Customer_23",seg:"Standard",region:"CIS",val:51423},
-  {name:"Customer_24",seg:"Competitor",region:"N_AMERICA",val:59241},
-  {name:"Customer_25",seg:"Premium",region:"APAC",val:46559},
-  {name:"Customer_26",seg:"Standard",region:"EMENA",val:60796},
-  {name:"Customer_27",seg:"Premium",region:"CIS",val:70807},
-  {name:"Customer_28",seg:"Competitor",region:"N_AMERICA",val:19895},
-  {name:"Customer_29",seg:"Standard",region:"APAC",val:96990},
-  {name:"Customer_30",seg:"Premium",region:"EMENA",val:83244},
-  {name:"Customer_31",seg:"Competitor",region:"CIS",val:21233},
-  {name:"Customer_32",seg:"Standard",region:"N_AMERICA",val:18182},
-  {name:"Customer_33",seg:"Premium",region:"APAC",val:18340},
-  {name:"Customer_34",seg:"Standard",region:"EMENA",val:30424},
-  {name:"Customer_35",seg:"Competitor",region:"CIS",val:52476},
-  {name:"Customer_36",seg:"Premium",region:"N_AMERICA",val:43194},
-  {name:"Customer_37",seg:"Standard",region:"APAC",val:29122},
-  {name:"Customer_38",seg:"Competitor",region:"EMENA",val:61186},
-  {name:"Customer_39",seg:"Premium",region:"CIS",val:13949},
-  {name:"Customer_40",seg:"Standard",region:"N_AMERICA",val:29214},
-  {name:"Customer_41",seg:"Competitor",region:"APAC",val:36636},
-  {name:"Customer_42",seg:"Premium",region:"EMENA",val:45606},
-  {name:"Customer_43",seg:"Standard",region:"CIS",val:78518},
-  {name:"Customer_44",seg:"Competitor",region:"N_AMERICA",val:19967},
-  {name:"Customer_45",seg:"Premium",region:"APAC",val:51423},
-  {name:"Customer_46",seg:"Standard",region:"EMENA",val:59241},
-  {name:"Customer_47",seg:"Competitor",region:"CIS",val:46560},
-  {name:"Customer_48",seg:"Premium",region:"N_AMERICA",val:60796},
-  {name:"Customer_49",seg:"Standard",region:"APAC",val:70807},
+  {name:"Customer_0",seg:"Competitor",region:"CIS",val:2209493},
+  {name:"Customer_1",seg:"Competitor",region:"CIS",val:2011661},
+  {name:"Customer_2",seg:"Competitor",region:"EMENA",val:2141797},
+  {name:"Customer_3",seg:"Competitor",region:"APAC",val:2062570},
+  {name:"Customer_4",seg:"Competitor",region:"EMENA",val:2126302},
+  {name:"Customer_5",seg:"Standard",region:"EMENA",val:1964467},
+  {name:"Customer_6",seg:"Premium",region:"N_AMERICA",val:1984805},
+  {name:"Customer_7",seg:"Standard",region:"N_AMERICA",val:1930615},
+  {name:"Customer_8",seg:"Premium",region:"APAC",val:2067618},
+  {name:"Customer_9",seg:"Standard",region:"CIS",val:1978666},
+  {name:"Customer_10",seg:"Competitor",region:"EMENA",val:2125667},
+  {name:"Customer_11",seg:"Standard",region:"APAC",val:2048271},
+  {name:"Customer_12",seg:"Premium",region:"APAC",val:2060837},
+  {name:"Customer_13",seg:"Competitor",region:"N_AMERICA",val:2098909},
+  {name:"Customer_14",seg:"Standard",region:"CIS",val:1940332},
+  {name:"Customer_15",seg:"Standard",region:"EMENA",val:1977444},
+  {name:"Customer_16",seg:"Standard",region:"N_AMERICA",val:2127342},
+  {name:"Customer_17",seg:"Competitor",region:"CIS",val:2044979},
+  {name:"Customer_18",seg:"Premium",region:"CIS",val:1979653},
+  {name:"Customer_19",seg:"Standard",region:"N_AMERICA",val:2068166},
+  {name:"Customer_20",seg:"Standard",region:"EMENA",val:2106835},
+  {name:"Customer_21",seg:"Standard",region:"CIS",val:1999034},
+  {name:"Customer_22",seg:"Competitor",region:"EMENA",val:2178835},
+  {name:"Customer_23",seg:"Standard",region:"EMENA",val:2124711},
+  {name:"Customer_24",seg:"Standard",region:"APAC",val:1918904},
+  {name:"Customer_25",seg:"Standard",region:"APAC",val:2046332},
+  {name:"Customer_26",seg:"Standard",region:"CIS",val:2195718},
+  {name:"Customer_27",seg:"Premium",region:"EMENA",val:1923011},
+  {name:"Customer_28",seg:"Standard",region:"N_AMERICA",val:1952792},
+  {name:"Customer_29",seg:"Premium",region:"N_AMERICA",val:2023691},
+  {name:"Customer_30",seg:"Premium",region:"N_AMERICA",val:2125870},
+  {name:"Customer_31",seg:"Premium",region:"CIS",val:2018871},
+  {name:"Customer_32",seg:"Competitor",region:"APAC",val:1907393},
+  {name:"Customer_33",seg:"Competitor",region:"APAC",val:2094346},
+  {name:"Customer_34",seg:"Premium",region:"EMENA",val:1975607},
+  {name:"Customer_35",seg:"Premium",region:"CIS",val:1986990},
+  {name:"Customer_36",seg:"Standard",region:"N_AMERICA",val:2138392},
+  {name:"Customer_37",seg:"Competitor",region:"EMENA",val:2027149},
+  {name:"Customer_38",seg:"Competitor",region:"CIS",val:2007051},
+  {name:"Customer_39",seg:"Competitor",region:"APAC",val:2162411},
+  {name:"Customer_40",seg:"Premium",region:"APAC",val:1979123},
+  {name:"Customer_41",seg:"Premium",region:"N_AMERICA",val:1998168},
+  {name:"Customer_42",seg:"Competitor",region:"EMENA",val:2071153},
+  {name:"Customer_43",seg:"Premium",region:"APAC",val:2002267},
+  {name:"Customer_44",seg:"Standard",region:"CIS",val:2026948},
+  {name:"Customer_45",seg:"Competitor",region:"CIS",val:2065471},
+  {name:"Customer_46",seg:"Premium",region:"CIS",val:1936820},
+  {name:"Customer_47",seg:"Premium",region:"APAC",val:1851414},
+  {name:"Customer_48",seg:"Competitor",region:"APAC",val:1999126},
+  {name:"Customer_49",seg:"Premium",region:"CIS",val:2055629},
 ];
 
 // Product catalog (exact from notebook)
@@ -652,6 +700,10 @@ const CATALOG = {
   "Accessory":["Basic","Advanced"],
   "Networking Equipment":["Small","Medium","Large"]
 };
+
+// Region demand factors — derived from notebook simulation
+const REGION_FACTOR = {"APAC": 0.9976838217505312, "CIS": 0.9878689772197253, "EMENA": 0.9950152976425207, "N_AMERICA": 1.027343160263953};
+const BASE_DEMAND_SCALAR = 5.4941;
 
 // get_cost — exact from notebook
 function getCost(prod,sub){
@@ -672,8 +724,16 @@ function getTariff(region,prod,sub){
   return (RTARIFF[region]||0.20)*((PTARIFF[prod]||{})[sub]||1.0);
 }
 
-// Elasticity — exact from notebook (deterministic)
-function getElasticity(prod,sub){
+// Elasticity — derived from notebook via log-log regression (with deterministic fallback)
+const EL_LOOKUP = {"Accessory||Advanced||APAC": -1.0630800683952137, "Accessory||Advanced||CIS": -1.0657971481796928, "Accessory||Advanced||EMENA": -1.0736406383129302, "Accessory||Advanced||N_AMERICA": -1.0664332724165397, "Air Conditioner||1.5 Ton||CIS": 0.0, "Air Conditioner||1.5 Ton||EMENA": 0.0, "Air Conditioner||1.5 Ton||N_AMERICA": -0.0, "Air Conditioner||2 Ton||APAC": -1.0250932745223422, "Air Conditioner||2 Ton||CIS": -0.9902321126076862, "Air Conditioner||2 Ton||EMENA": -0.9886395360377694, "Air Conditioner||2 Ton||N_AMERICA": -1.0221322530603594, "Laptop||i7||APAC": -1.194490422870192, "Laptop||i7||CIS": -1.1746091943383528, "Laptop||i7||EMENA": -1.151391087117065, "Laptop||i7||N_AMERICA": -1.238819670215872, "Laptop||i9||APAC": -0.721666313216693, "Laptop||i9||CIS": -0.722327626475224, "Laptop||i9||EMENA": -0.7284293250885845, "Laptop||i9||N_AMERICA": -0.7275006108742316, "Networking Equipment||Large||APAC": -0.8667622950186021, "Networking Equipment||Large||CIS": -0.8671807638688089, "Networking Equipment||Large||EMENA": -0.8673185114505874, "Networking Equipment||Large||N_AMERICA": -0.872473325847206, "Networking Equipment||Medium||APAC": -0.8305883292293855, "Networking Equipment||Medium||CIS": -0.728117269751754, "Networking Equipment||Medium||EMENA": -0.7505122905668632, "Networking Equipment||Medium||N_AMERICA": -0.9626519773489353, "Smartphone||256GB||APAC": -0.1859353287282799, "Smartphone||256GB||CIS": -0.2123849075407439, "Smartphone||256GB||EMENA": 0.0, "Smartphone||256GB||N_AMERICA": -0.3330012621278533, "Smartphone||512GB||APAC": -0.8643694607268785, "Smartphone||512GB||CIS": -0.8678497693999758, "Smartphone||512GB||EMENA": -0.8710235183509885, "Smartphone||512GB||N_AMERICA": -0.8694482836396072, "TV||50 inch||APAC": -1.1889719114054829, "TV||50 inch||CIS": -1.1971653312187704, "TV||50 inch||EMENA": -1.172735757583056, "TV||50 inch||N_AMERICA": -1.1229384660477053, "TV||65 inch||APAC": -1.0685106459292582, "TV||65 inch||CIS": -1.059136807148581, "TV||65 inch||EMENA": -1.0674683714426128, "TV||65 inch||N_AMERICA": -1.0632840726591468, "Smartphone||128GB||N_AMERICA": -2.15, "Smartphone||128GB||EMENA": -2.15, "Smartphone||128GB||APAC": -2.15, "Smartphone||128GB||CIS": -2.15, "Laptop||i5||N_AMERICA": -1.25, "Laptop||i5||EMENA": -1.25, "Laptop||i5||APAC": -1.25, "Laptop||i5||CIS": -1.25, "TV||32 inch||N_AMERICA": -1.25, "TV||32 inch||EMENA": -1.25, "TV||32 inch||APAC": -1.25, "TV||32 inch||CIS": -1.25, "Air Conditioner||1 Ton||N_AMERICA": -2.15, "Air Conditioner||1 Ton||EMENA": -2.15, "Air Conditioner||1 Ton||APAC": -2.15, "Air Conditioner||1 Ton||CIS": -2.15, "Air Conditioner||1.5 Ton||APAC": -1.25, "Accessory||Basic||N_AMERICA": -2.15, "Accessory||Basic||EMENA": -2.15, "Accessory||Basic||APAC": -2.15, "Accessory||Basic||CIS": -2.15, "Networking Equipment||Small||N_AMERICA": -2.15, "Networking Equipment||Small||EMENA": -2.15, "Networking Equipment||Small||APAC": -2.15, "Networking Equipment||Small||CIS": -2.15};
+function getElasticity(prod,sub,region){
+  // Try region-specific first
+  if(region){const v=EL_LOOKUP[prod+"||"+sub+"||"+region];if(v!==undefined)return v;}
+  // Fallback: average across regions
+  const regs=["N_AMERICA","EMENA","APAC","CIS"];
+  const vals=regs.map(r=>EL_LOOKUP[prod+"||"+sub+"||"+r]).filter(x=>x!==undefined);
+  if(vals.length) return vals.reduce((a,b)=>a+b,0)/vals.length;
+  // Deterministic fallback
   if(["128GB","1 Ton","Basic","Small"].includes(sub)) return -2.15;
   if(["512GB","2 Ton","Advanced","Large"].includes(sub)) return -0.75;
   return -1.25;
@@ -687,26 +747,31 @@ function getSeason(m){
   return "Fall";
 }
 
-// Season multiplier (from notebook's simulate_seasonality)
-function getSeasonMult(prod,month){
-  if(prod==="Air Conditioner"&&[6,7,8].includes(month)) return 1.5;
-  if(prod==="Smartphone"&&[11,12].includes(month)) return 1.3;
-  if(prod==="Laptop"&&[8,9].includes(month)) return 1.2;
-  return 1.0;
+// Season multiplier — derived from notebook simulation data
+const SEA_LOOKUP = {"Accessory||Advanced||APAC||Fall": 1.0110561335115584, "Accessory||Advanced||APAC||Spring": 1.0196523329216312, "Accessory||Advanced||APAC||Summer": 1.0038861619818558, "Accessory||Advanced||APAC||Winter": 0.9656421407420275, "Accessory||Advanced||CIS||Fall": 1.0375124824024846, "Accessory||Advanced||CIS||Spring": 0.9317538824427689, "Accessory||Advanced||CIS||Summer": 1.0173269622583567, "Accessory||Advanced||CIS||Winter": 1.0222233004153662, "Accessory||Advanced||EMENA||Fall": 1.0323973197026086, "Accessory||Advanced||EMENA||Spring": 1.0400468094203958, "Accessory||Advanced||EMENA||Summer": 0.9233136415456856, "Accessory||Advanced||EMENA||Winter": 1.0072248193795155, "Accessory||Advanced||N_AMERICA||Fall": 1.0619064218709973, "Accessory||Advanced||N_AMERICA||Spring": 0.9723188367435173, "Accessory||Advanced||N_AMERICA||Summer": 0.9992801940658277, "Accessory||Advanced||N_AMERICA||Winter": 0.9640399264127486, "Air Conditioner||1.5 Ton||APAC||Fall": 1.0, "Air Conditioner||1.5 Ton||APAC||Winter": 1.0, "Air Conditioner||1.5 Ton||CIS||Fall": 1.0, "Air Conditioner||1.5 Ton||CIS||Summer": 1.0, "Air Conditioner||1.5 Ton||EMENA||Fall": 1.0, "Air Conditioner||1.5 Ton||EMENA||Spring": 1.0, "Air Conditioner||1.5 Ton||EMENA||Summer": 1.0, "Air Conditioner||1.5 Ton||EMENA||Winter": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||Fall": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||Spring": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||Summer": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||Winter": 1.0, "Air Conditioner||2 Ton||APAC||Fall": 0.9235964542000843, "Air Conditioner||2 Ton||APAC||Spring": 0.936042780748663, "Air Conditioner||2 Ton||APAC||Summer": 1.1065477725268522, "Air Conditioner||2 Ton||APAC||Winter": 0.9765216797217294, "Air Conditioner||2 Ton||CIS||Fall": 0.9270666907645039, "Air Conditioner||2 Ton||CIS||Spring": 1.0298210735586482, "Air Conditioner||2 Ton||CIS||Summer": 1.0619938265145967, "Air Conditioner||2 Ton||CIS||Winter": 0.9574456375931264, "Air Conditioner||2 Ton||EMENA||Fall": 1.0071612982542415, "Air Conditioner||2 Ton||EMENA||Spring": 1.005599807869351, "Air Conditioner||2 Ton||EMENA||Summer": 1.058854614888124, "Air Conditioner||2 Ton||EMENA||Winter": 0.9131398867358838, "Air Conditioner||2 Ton||N_AMERICA||Fall": 0.7803614457831326, "Air Conditioner||2 Ton||N_AMERICA||Spring": 0.9443656189001818, "Air Conditioner||2 Ton||N_AMERICA||Summer": 1.1986311002765928, "Air Conditioner||2 Ton||N_AMERICA||Winter": 1.001156626506024, "Laptop||i7||APAC||Fall": 1.0421739130434782, "Laptop||i7||APAC||Spring": 0.9188505062537224, "Laptop||i7||APAC||Summer": 1.0269066286528867, "Laptop||i7||APAC||Winter": 1.0243383742911152, "Laptop||i7||CIS||Fall": 0.9783876500857633, "Laptop||i7||CIS||Spring": 0.998794678039961, "Laptop||i7||CIS||Summer": 1.0707488427829601, "Laptop||i7||CIS||Winter": 0.9607438016528926, "Laptop||i7||EMENA||Fall": 0.9355787222667736, "Laptop||i7||EMENA||Spring": 0.9818007662835249, "Laptop||i7||EMENA||Summer": 1.1281396338867604, "Laptop||i7||EMENA||Winter": 0.9404388714733543, "Laptop||i7||N_AMERICA||Fall": 1.1601903251387788, "Laptop||i7||N_AMERICA||Spring": 0.8665396683101748, "Laptop||i7||N_AMERICA||Summer": 1.0358842188739097, "Laptop||i7||N_AMERICA||Winter": 0.9312423554080028, "Laptop||i9||APAC||Fall": 0.9491513826758682, "Laptop||i9||APAC||Spring": 1.0296490692429532, "Laptop||i9||APAC||Summer": 1.0451731781001286, "Laptop||i9||APAC||Winter": 0.9714716762968231, "Laptop||i9||CIS||Fall": 0.9744477373035575, "Laptop||i9||CIS||Spring": 0.9936897770444669, "Laptop||i9||CIS||Summer": 1.0254482010227886, "Laptop||i9||CIS||Winter": 1.0010612663270158, "Laptop||i9||EMENA||Fall": 1.0776621536467883, "Laptop||i9||EMENA||Spring": 0.9541276809134251, "Laptop||i9||EMENA||Summer": 1.000338921503359, "Laptop||i9||EMENA||Winter": 0.9670554415371743, "Laptop||i9||N_AMERICA||Fall": 1.0661485775031883, "Laptop||i9||N_AMERICA||Spring": 0.9385111705815482, "Laptop||i9||N_AMERICA||Summer": 1.0235700207163159, "Laptop||i9||N_AMERICA||Winter": 0.9717415945278168, "Networking Equipment||Large||APAC||Fall": 1.039777636724126, "Networking Equipment||Large||APAC||Spring": 1.021138811105665, "Networking Equipment||Large||APAC||Summer": 0.9665534770795926, "Networking Equipment||Large||APAC||Winter": 0.9701769202926369, "Networking Equipment||Large||CIS||Fall": 1.0192777916603717, "Networking Equipment||Large||CIS||Spring": 1.0624675521098832, "Networking Equipment||Large||CIS||Summer": 0.9045336018418414, "Networking Equipment||Large||CIS||Winter": 1.0113487757333495, "Networking Equipment||Large||EMENA||Fall": 0.9700776466819945, "Networking Equipment||Large||EMENA||Spring": 1.0183634339796377, "Networking Equipment||Large||EMENA||Summer": 0.9634071717048097, "Networking Equipment||Large||EMENA||Winter": 1.0484431110557015, "Networking Equipment||Large||N_AMERICA||Fall": 0.9554371266893219, "Networking Equipment||Large||N_AMERICA||Spring": 1.0238870966879055, "Networking Equipment||Large||N_AMERICA||Summer": 1.0154583159247368, "Networking Equipment||Large||N_AMERICA||Winter": 1.0071514119734581, "Networking Equipment||Medium||APAC||Fall": 0.9929494712103407, "Networking Equipment||Medium||APAC||Spring": 1.0247747747747749, "Networking Equipment||Medium||APAC||Summer": 0.9817170111287759, "Networking Equipment||Medium||APAC||Winter": 1.0135135135135134, "Networking Equipment||Medium||CIS||Fall": 0.9549050632911392, "Networking Equipment||Medium||CIS||Spring": 0.9516008935219658, "Networking Equipment||Medium||CIS||Summer": 0.9486638537271448, "Networking Equipment||Medium||CIS||Winter": 1.1234177215189873, "Networking Equipment||Medium||EMENA||Fall": 1.0178571428571428, "Networking Equipment||Medium||EMENA||Spring": 0.9807692307692306, "Networking Equipment||Medium||EMENA||Summer": 1.0017857142857143, "Networking Equipment||Medium||EMENA||Winter": 0.9935064935064933, "Networking Equipment||Medium||N_AMERICA||Fall": 0.9126466753585397, "Networking Equipment||Medium||N_AMERICA||Spring": 0.9533898305084746, "Networking Equipment||Medium||N_AMERICA||Summer": 0.8898305084745763, "Networking Equipment||Medium||N_AMERICA||Winter": 1.4124293785310735, "Smartphone||256GB||APAC||Fall": 0.9714285714285715, "Smartphone||256GB||APAC||Spring": 0.9714285714285715, "Smartphone||256GB||APAC||Summer": 0.9714285714285715, "Smartphone||256GB||APAC||Winter": 1.110204081632653, "Smartphone||256GB||CIS||Fall": 0.9767441860465117, "Smartphone||256GB||CIS||Spring": 0.9767441860465117, "Smartphone||256GB||CIS||Summer": 1.074418604651163, "Smartphone||256GB||CIS||Winter": 0.9767441860465117, "Smartphone||256GB||EMENA||Fall": 1.0, "Smartphone||256GB||EMENA||Spring": 1.0, "Smartphone||256GB||EMENA||Summer": 1.0, "Smartphone||256GB||EMENA||Winter": 1.0, "Smartphone||256GB||N_AMERICA||Fall": 0.9318181818181818, "Smartphone||256GB||N_AMERICA||Spring": 0.9318181818181818, "Smartphone||256GB||N_AMERICA||Summer": 1.025, "Smartphone||256GB||N_AMERICA||Winter": 1.0871212121212122, "Smartphone||512GB||APAC||Fall": 1.0470910188074751, "Smartphone||512GB||APAC||Spring": 0.9322657839594278, "Smartphone||512GB||APAC||Summer": 1.0399581039041033, "Smartphone||512GB||APAC||Winter": 0.9771491454500991, "Smartphone||512GB||CIS||Fall": 1.0549888554861944, "Smartphone||512GB||CIS||Spring": 0.9622532443907394, "Smartphone||512GB||CIS||Summer": 1.0045975808998233, "Smartphone||512GB||CIS||Winter": 0.9791228003746915, "Smartphone||512GB||EMENA||Fall": 1.015434368907102, "Smartphone||512GB||EMENA||Spring": 0.9026998072167594, "Smartphone||512GB||EMENA||Summer": 0.9280606221683798, "Smartphone||512GB||EMENA||Winter": 1.1429636172914481, "Smartphone||512GB||N_AMERICA||Fall": 1.0513979438022392, "Smartphone||512GB||N_AMERICA||Spring": 0.9659543407729185, "Smartphone||512GB||N_AMERICA||Summer": 0.9069015978891531, "Smartphone||512GB||N_AMERICA||Winter": 1.0669098575642402, "TV||50 inch||APAC||Fall": 0.9484827099505999, "TV||50 inch||APAC||Spring": 1.1972477064220184, "TV||50 inch||APAC||Summer": 0.9344372342805997, "TV||50 inch||APAC||Winter": 0.9495412844036698, "TV||50 inch||CIS||Fall": 1.048040794417606, "TV||50 inch||CIS||Spring": 1.0171580876228552, "TV||50 inch||CIS||Summer": 0.9206712433257055, "TV||50 inch||CIS||Winter": 1.020190759321194, "TV||50 inch||EMENA||Fall": 0.949438202247191, "TV||50 inch||EMENA||Spring": 0.9279576999339062, "TV||50 inch||EMENA||Summer": 1.105464759959142, "TV||50 inch||EMENA||Winter": 1.0779775280898876, "TV||50 inch||N_AMERICA||Fall": 0.7209302325581395, "TV||50 inch||N_AMERICA||Spring": 1.1823255813953486, "TV||50 inch||N_AMERICA||Summer": 1.0177838577291383, "TV||50 inch||N_AMERICA||Winter": 1.0299003322259135, "TV||65 inch||APAC||Fall": 1.031538254068147, "TV||65 inch||APAC||Spring": 0.9408741638272662, "TV||65 inch||APAC||Summer": 1.0396894191140007, "TV||65 inch||APAC||Winter": 0.9893890821416385, "TV||65 inch||CIS||Fall": 0.9298490697444389, "TV||65 inch||CIS||Spring": 1.1030204410973643, "TV||65 inch||CIS||Summer": 0.9492922354675986, "TV||65 inch||CIS||Winter": 1.0199415055983665, "TV||65 inch||EMENA||Fall": 1.02276578127499, "TV||65 inch||EMENA||Spring": 1.0226473387077442, "TV||65 inch||EMENA||Summer": 0.98427462061025, "TV||65 inch||EMENA||Winter": 0.9730661653051055, "TV||65 inch||N_AMERICA||Fall": 1.0072381493045701, "TV||65 inch||N_AMERICA||Spring": 0.9741582002902758, "TV||65 inch||N_AMERICA||Summer": 0.9923143236074271, "TV||65 inch||N_AMERICA||Winter": 1.0308025308025308, "Smartphone||128GB||N_AMERICA||Winter": 1.0, "Smartphone||128GB||N_AMERICA||Spring": 1.0, "Smartphone||128GB||N_AMERICA||Summer": 1.0, "Smartphone||128GB||N_AMERICA||Fall": 1.0, "Smartphone||128GB||EMENA||Winter": 1.0, "Smartphone||128GB||EMENA||Spring": 1.0, "Smartphone||128GB||EMENA||Summer": 1.0, "Smartphone||128GB||EMENA||Fall": 1.0, "Smartphone||128GB||APAC||Winter": 1.0, "Smartphone||128GB||APAC||Spring": 1.0, "Smartphone||128GB||APAC||Summer": 1.0, "Smartphone||128GB||APAC||Fall": 1.0, "Smartphone||128GB||CIS||Winter": 1.0, "Smartphone||128GB||CIS||Spring": 1.0, "Smartphone||128GB||CIS||Summer": 1.0, "Smartphone||128GB||CIS||Fall": 1.0, "Laptop||i5||N_AMERICA||Winter": 1.0, "Laptop||i5||N_AMERICA||Spring": 1.0, "Laptop||i5||N_AMERICA||Summer": 1.0, "Laptop||i5||N_AMERICA||Fall": 1.0, "Laptop||i5||EMENA||Winter": 1.0, "Laptop||i5||EMENA||Spring": 1.0, "Laptop||i5||EMENA||Summer": 1.0, "Laptop||i5||EMENA||Fall": 1.0, "Laptop||i5||APAC||Winter": 1.0, "Laptop||i5||APAC||Spring": 1.0, "Laptop||i5||APAC||Summer": 1.0, "Laptop||i5||APAC||Fall": 1.0, "Laptop||i5||CIS||Winter": 1.0, "Laptop||i5||CIS||Spring": 1.0, "Laptop||i5||CIS||Summer": 1.0, "Laptop||i5||CIS||Fall": 1.0, "TV||32 inch||N_AMERICA||Winter": 1.0, "TV||32 inch||N_AMERICA||Spring": 1.0, "TV||32 inch||N_AMERICA||Summer": 1.0, "TV||32 inch||N_AMERICA||Fall": 1.0, "TV||32 inch||EMENA||Winter": 1.0, "TV||32 inch||EMENA||Spring": 1.0, "TV||32 inch||EMENA||Summer": 1.0, "TV||32 inch||EMENA||Fall": 1.0, "TV||32 inch||APAC||Winter": 1.0, "TV||32 inch||APAC||Spring": 1.0, "TV||32 inch||APAC||Summer": 1.0, "TV||32 inch||APAC||Fall": 1.0, "TV||32 inch||CIS||Winter": 1.0, "TV||32 inch||CIS||Spring": 1.0, "TV||32 inch||CIS||Summer": 1.0, "TV||32 inch||CIS||Fall": 1.0, "Air Conditioner||1 Ton||N_AMERICA||Winter": 1.0, "Air Conditioner||1 Ton||N_AMERICA||Spring": 1.0, "Air Conditioner||1 Ton||N_AMERICA||Summer": 1.0, "Air Conditioner||1 Ton||N_AMERICA||Fall": 1.0, "Air Conditioner||1 Ton||EMENA||Winter": 1.0, "Air Conditioner||1 Ton||EMENA||Spring": 1.0, "Air Conditioner||1 Ton||EMENA||Summer": 1.0, "Air Conditioner||1 Ton||EMENA||Fall": 1.0, "Air Conditioner||1 Ton||APAC||Winter": 1.0, "Air Conditioner||1 Ton||APAC||Spring": 1.0, "Air Conditioner||1 Ton||APAC||Summer": 1.0, "Air Conditioner||1 Ton||APAC||Fall": 1.0, "Air Conditioner||1 Ton||CIS||Winter": 1.0, "Air Conditioner||1 Ton||CIS||Spring": 1.0, "Air Conditioner||1 Ton||CIS||Summer": 1.0, "Air Conditioner||1 Ton||CIS||Fall": 1.0, "Air Conditioner||1.5 Ton||APAC||Spring": 1.0, "Air Conditioner||1.5 Ton||APAC||Summer": 1.0, "Air Conditioner||1.5 Ton||CIS||Winter": 1.0, "Air Conditioner||1.5 Ton||CIS||Spring": 1.0, "Accessory||Basic||N_AMERICA||Winter": 1.0, "Accessory||Basic||N_AMERICA||Spring": 1.0, "Accessory||Basic||N_AMERICA||Summer": 1.0, "Accessory||Basic||N_AMERICA||Fall": 1.0, "Accessory||Basic||EMENA||Winter": 1.0, "Accessory||Basic||EMENA||Spring": 1.0, "Accessory||Basic||EMENA||Summer": 1.0, "Accessory||Basic||EMENA||Fall": 1.0, "Accessory||Basic||APAC||Winter": 1.0, "Accessory||Basic||APAC||Spring": 1.0, "Accessory||Basic||APAC||Summer": 1.0, "Accessory||Basic||APAC||Fall": 1.0, "Accessory||Basic||CIS||Winter": 1.0, "Accessory||Basic||CIS||Spring": 1.0, "Accessory||Basic||CIS||Summer": 1.0, "Accessory||Basic||CIS||Fall": 1.0, "Networking Equipment||Small||N_AMERICA||Winter": 1.0, "Networking Equipment||Small||N_AMERICA||Spring": 1.0, "Networking Equipment||Small||N_AMERICA||Summer": 1.0, "Networking Equipment||Small||N_AMERICA||Fall": 1.0, "Networking Equipment||Small||EMENA||Winter": 1.0, "Networking Equipment||Small||EMENA||Spring": 1.0, "Networking Equipment||Small||EMENA||Summer": 1.0, "Networking Equipment||Small||EMENA||Fall": 1.0, "Networking Equipment||Small||APAC||Winter": 1.0, "Networking Equipment||Small||APAC||Spring": 1.0, "Networking Equipment||Small||APAC||Summer": 1.0, "Networking Equipment||Small||APAC||Fall": 1.0, "Networking Equipment||Small||CIS||Winter": 1.0, "Networking Equipment||Small||CIS||Spring": 1.0, "Networking Equipment||Small||CIS||Summer": 1.0, "Networking Equipment||Small||CIS||Fall": 1.0};
+function getSeasonMult(prod,month,sub,region){
+  const s=getSeason(month);
+  // Try region+sub specific first, then cross-region average
+  const subs=sub?[sub]:Object.keys(CATALOG[prod]||{});
+  const regs=region?[region]:["N_AMERICA","EMENA","APAC","CIS"];
+  const vals=[];
+  for(const ss of subs) for(const r of regs){
+    const v=SEA_LOOKUP[prod+"||"+ss+"||"+r+"||"+s];
+    if(v!==undefined) vals.push(v);
+  }
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:1.0;
 }
 
-// Sales pressure factor (derived from notebook's derived_sales_pressure_df logic, 0.9–1.1)
+// Sales Pressure Factor — derived from notebook's normalized monthly demand
+const SPF_LOOKUP = {"Accessory||Advanced||APAC||1": 0.9213787085514834, "Accessory||Advanced||APAC||2": 0.915552016985138, "Accessory||Advanced||APAC||3": 0.9205882352941177, "Accessory||Advanced||APAC||4": 0.920982905982906, "Accessory||Advanced||APAC||5": 0.9171957671957672, "Accessory||Advanced||APAC||6": 0.9193229166666667, "Accessory||Advanced||APAC||7": 0.9176701570680629, "Accessory||Advanced||APAC||8": 0.9205295138888889, "Accessory||Advanced||APAC||9": 0.9208067940552017, "Accessory||Advanced||APAC||10": 0.917608286252354, "Accessory||Advanced||APAC||11": 0.919813829787234, "Accessory||Advanced||APAC||12": 0.9170673076923077, "Accessory||Advanced||CIS||1": 0.9174955277280858, "Accessory||Advanced||CIS||2": 0.9171754171754172, "Accessory||Advanced||CIS||3": 0.9141538461538462, "Accessory||Advanced||CIS||4": 0.9158390133073677, "Accessory||Advanced||CIS||5": 0.9154466501240694, "Accessory||Advanced||CIS||6": 0.9191760845789282, "Accessory||Advanced||CIS||7": 0.917098445595855, "Accessory||Advanced||CIS||8": 0.9155618574973414, "Accessory||Advanced||CIS||9": 0.9194104960460101, "Accessory||Advanced||CIS||10": 0.9197447713576746, "Accessory||Advanced||CIS||11": 0.9139067828723001, "Accessory||Advanced||CIS||12": 0.9174636174636175, "Accessory||Advanced||EMENA||1": 0.9158098396904367, "Accessory||Advanced||EMENA||2": 0.9182433862433863, "Accessory||Advanced||EMENA||3": 0.9135942760942761, "Accessory||Advanced||EMENA||4": 0.919103313840156, "Accessory||Advanced||EMENA||5": 0.9196319018404908, "Accessory||Advanced||EMENA||6": 0.9149085794655415, "Accessory||Advanced||EMENA||7": 0.9154801508094922, "Accessory||Advanced||EMENA||8": 0.9132461873638344, "Accessory||Advanced||EMENA||9": 0.9145539906103286, "Accessory||Advanced||EMENA||10": 0.9187529301453352, "Accessory||Advanced||EMENA||11": 0.9178710178710179, "Accessory||Advanced||EMENA||12": 0.915599128540305, "Accessory||Advanced||N_AMERICA||1": 0.9189593301435407, "Accessory||Advanced||N_AMERICA||2": 0.9191252144082332, "Accessory||Advanced||N_AMERICA||3": 0.9195104895104895, "Accessory||Advanced||N_AMERICA||4": 0.9181818181818182, "Accessory||Advanced||N_AMERICA||5": 0.9218673218673219, "Accessory||Advanced||N_AMERICA||6": 0.920263705759889, "Accessory||Advanced||N_AMERICA||7": 0.9162851536952257, "Accessory||Advanced||N_AMERICA||8": 0.9247782705099779, "Accessory||Advanced||N_AMERICA||9": 0.9229007633587787, "Accessory||Advanced||N_AMERICA||10": 0.9219131614654003, "Accessory||Advanced||N_AMERICA||11": 0.9228501228501229, "Accessory||Advanced||N_AMERICA||12": 0.920961682945154, "Air Conditioner||1.5 Ton||APAC||2": 0.9, "Air Conditioner||1.5 Ton||APAC||10": 0.9, "Air Conditioner||1.5 Ton||CIS||6": 0.9, "Air Conditioner||1.5 Ton||CIS||7": 0.9, "Air Conditioner||1.5 Ton||CIS||8": 0.9, "Air Conditioner||1.5 Ton||CIS||9": 0.9, "Air Conditioner||1.5 Ton||CIS||10": 0.9, "Air Conditioner||1.5 Ton||CIS||11": 0.9, "Air Conditioner||1.5 Ton||EMENA||1": 0.9, "Air Conditioner||1.5 Ton||EMENA||2": 0.9, "Air Conditioner||1.5 Ton||EMENA||3": 0.9, "Air Conditioner||1.5 Ton||EMENA||6": 0.9, "Air Conditioner||1.5 Ton||EMENA||8": 0.9, "Air Conditioner||1.5 Ton||EMENA||9": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||1": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||2": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||3": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||6": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||7": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||8": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||9": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||12": 0.9, "Air Conditioner||2 Ton||APAC||1": 0.9174139051332034, "Air Conditioner||2 Ton||APAC||2": 0.9143540669856459, "Air Conditioner||2 Ton||APAC||3": 0.9135180055401663, "Air Conditioner||2 Ton||APAC||4": 0.9154798761609907, "Air Conditioner||2 Ton||APAC||5": 0.9135180055401663, "Air Conditioner||2 Ton||APAC||6": 0.917384370015949, "Air Conditioner||2 Ton||APAC||7": 0.9166666666666667, "Air Conditioner||2 Ton||APAC||8": 0.9220594965675057, "Air Conditioner||2 Ton||APAC||9": 0.9143962848297214, "Air Conditioner||2 Ton||APAC||10": 0.9145135566188198, "Air Conditioner||2 Ton||APAC||11": 0.9125730994152047, "Air Conditioner||2 Ton||APAC||12": 0.9138755980861244, "Air Conditioner||2 Ton||CIS||1": 0.9123636363636364, "Air Conditioner||2 Ton||CIS||2": 0.9167948717948718, "Air Conditioner||2 Ton||CIS||3": 0.9109375000000001, "Air Conditioner||2 Ton||CIS||4": 0.9154081632653062, "Air Conditioner||2 Ton||CIS||5": 0.9187128712871288, "Air Conditioner||2 Ton||CIS||6": 0.9128906250000001, "Air Conditioner||2 Ton||CIS||7": 0.9175187969924812, "Air Conditioner||2 Ton||CIS||8": 0.9172268907563026, "Air Conditioner||2 Ton||CIS||9": 0.9112264150943397, "Air Conditioner||2 Ton||CIS||10": 0.9144565217391305, "Air Conditioner||2 Ton||CIS||11": 0.9122077922077922, "Air Conditioner||2 Ton||CIS||12": 0.9116831683168317, "Air Conditioner||2 Ton||EMENA||1": 0.9131912058627581, "Air Conditioner||2 Ton||EMENA||2": 0.9132163742690058, "Air Conditioner||2 Ton||EMENA||3": 0.9139870223503965, "Air Conditioner||2 Ton||EMENA||4": 0.9129359543436906, "Air Conditioner||2 Ton||EMENA||5": 0.916413916146298, "Air Conditioner||2 Ton||EMENA||6": 0.9156446161274747, "Air Conditioner||2 Ton||EMENA||7": 0.9185417672621922, "Air Conditioner||2 Ton||EMENA||8": 0.912280701754386, "Air Conditioner||2 Ton||EMENA||9": 0.9132024977698484, "Air Conditioner||2 Ton||EMENA||10": 0.9155446756425949, "Air Conditioner||2 Ton||EMENA||11": 0.9136032388663968, "Air Conditioner||2 Ton||EMENA||12": 0.9093271152564957, "Air Conditioner||2 Ton||N_AMERICA||1": 0.9166666666666667, "Air Conditioner||2 Ton||N_AMERICA||2": 0.9149090909090909, "Air Conditioner||2 Ton||N_AMERICA||3": 0.9137142857142857, "Air Conditioner||2 Ton||N_AMERICA||4": 0.9138333333333334, "Air Conditioner||2 Ton||N_AMERICA||5": 0.916530612244898, "Air Conditioner||2 Ton||N_AMERICA||6": 0.9236781609195402, "Air Conditioner||2 Ton||N_AMERICA||7": 0.9202197802197802, "Air Conditioner||2 Ton||N_AMERICA||8": 0.919367088607595, "Air Conditioner||2 Ton||N_AMERICA||9": 0.912089552238806, "Air Conditioner||2 Ton||N_AMERICA||10": 0.9107575757575758, "Air Conditioner||2 Ton||N_AMERICA||11": 0.9074545454545455, "Air Conditioner||2 Ton||N_AMERICA||12": 0.9163333333333333, "Laptop||i7||APAC||1": 0.9212121212121213, "Laptop||i7||APAC||2": 0.9365079365079365, "Laptop||i7||APAC||3": 0.9241379310344828, "Laptop||i7||APAC||4": 0.9192307692307693, "Laptop||i7||APAC||5": 0.9222222222222223, "Laptop||i7||APAC||6": 0.9351851851851852, "Laptop||i7||APAC||7": 0.9216666666666666, "Laptop||i7||APAC||8": 0.9289855072463769, "Laptop||i7||APAC||9": 0.9320512820512821, "Laptop||i7||APAC||10": 0.9290322580645162, "Laptop||i7||APAC||11": 0.9259259259259259, "Laptop||i7||APAC||12": 0.9214285714285715, "Laptop||i7||CIS||1": 0.9245098039215687, "Laptop||i7||CIS||2": 0.9322222222222223, "Laptop||i7||CIS||3": 0.9256410256410257, "Laptop||i7||CIS||4": 0.9190476190476191, "Laptop||i7||CIS||5": 0.9407407407407408, "Laptop||i7||CIS||6": 0.9391304347826087, "Laptop||i7||CIS||7": 0.9301587301587302, "Laptop||i7||CIS||8": 0.9321839080459771, "Laptop||i7||CIS||9": 0.9214285714285715, "Laptop||i7||CIS||10": 0.9289855072463769, "Laptop||i7||CIS||11": 0.9347222222222222, "Laptop||i7||CIS||12": 0.9236111111111112, "Laptop||i7||EMENA||1": 0.924, "Laptop||i7||EMENA||2": 0.9311111111111111, "Laptop||i7||EMENA||3": 0.9294736842105263, "Laptop||i7||EMENA||4": 0.9141176470588236, "Laptop||i7||EMENA||5": 0.9466666666666667, "Laptop||i7||EMENA||6": 0.9273684210526316, "Laptop||i7||EMENA||7": 0.9421052631578948, "Laptop||i7||EMENA||8": 0.9475, "Laptop||i7||EMENA||9": 0.918, "Laptop||i7||EMENA||10": 0.92, "Laptop||i7||EMENA||11": 0.9400000000000001, "Laptop||i7||EMENA||12": 0.9218181818181819, "Laptop||i7||N_AMERICA||1": 0.922360248447205, "Laptop||i7||N_AMERICA||2": 0.9206349206349207, "Laptop||i7||N_AMERICA||3": 0.9103896103896104, "Laptop||i7||N_AMERICA||4": 0.9222222222222223, "Laptop||i7||N_AMERICA||5": 0.9168067226890757, "Laptop||i7||N_AMERICA||6": 0.9285714285714286, "Laptop||i7||N_AMERICA||7": 0.9224489795918368, "Laptop||i7||N_AMERICA||8": 0.9272108843537415, "Laptop||i7||N_AMERICA||9": 0.9285714285714286, "Laptop||i7||N_AMERICA||10": 0.9417582417582417, "Laptop||i7||N_AMERICA||11": 0.932967032967033, "Laptop||i7||N_AMERICA||12": 0.9190476190476191, "Laptop||i9||APAC||1": 0.9298850574712644, "Laptop||i9||APAC||2": 0.9232136509065055, "Laptop||i9||APAC||3": 0.9318399194563303, "Laptop||i9||APAC||4": 0.9292564655172414, "Laptop||i9||APAC||5": 0.9328142380422693, "Laptop||i9||APAC||6": 0.9289389920424403, "Laptop||i9||APAC||7": 0.92814039408867, "Laptop||i9||APAC||8": 0.9396232439335888, "Laptop||i9||APAC||9": 0.9322824302134647, "Laptop||i9||APAC||10": 0.9291690220463539, "Laptop||i9||APAC||11": 0.9224137931034483, "Laptop||i9||APAC||12": 0.9318704284221526, "Laptop||i9||CIS||1": 0.9296772465514933, "Laptop||i9||CIS||2": 0.9249824561403509, "Laptop||i9||CIS||3": 0.9291392543859649, "Laptop||i9||CIS||4": 0.9280461427541457, "Laptop||i9||CIS||5": 0.928138974888201, "Laptop||i9||CIS||6": 0.9255078485687904, "Laptop||i9||CIS||7": 0.928452082587421, "Laptop||i9||CIS||8": 0.9349787512258908, "Laptop||i9||CIS||9": 0.9323649122807017, "Laptop||i9||CIS||10": 0.9231382652435284, "Laptop||i9||CIS||11": 0.9279659544901859, "Laptop||i9||CIS||12": 0.9312203867332565, "Laptop||i9||EMENA||1": 0.9248686974789916, "Laptop||i9||EMENA||2": 0.9232060185185186, "Laptop||i9||EMENA||3": 0.9255826271186441, "Laptop||i9||EMENA||4": 0.921625, "Laptop||i9||EMENA||5": 0.9231700450450451, "Laptop||i9||EMENA||6": 0.9225167410714286, "Laptop||i9||EMENA||7": 0.9231299212598425, "Laptop||i9||EMENA||8": 0.9306306306306307, "Laptop||i9||EMENA||9": 0.9342013888888889, "Laptop||i9||EMENA||10": 0.926271186440678, "Laptop||i9||EMENA||11": 0.9246162280701755, "Laptop||i9||EMENA||12": 0.9240104166666667, "Laptop||i9||N_AMERICA||1": 0.9288468668891361, "Laptop||i9||N_AMERICA||2": 0.9268808777429467, "Laptop||i9||N_AMERICA||3": 0.928550241008528, "Laptop||i9||N_AMERICA||4": 0.9257693733778273, "Laptop||i9||N_AMERICA||5": 0.928261642374689, "Laptop||i9||N_AMERICA||6": 0.9231819733697508, "Laptop||i9||N_AMERICA||7": 0.9288149028933809, "Laptop||i9||N_AMERICA||8": 0.9413123535319718, "Laptop||i9||N_AMERICA||9": 0.940625, "Laptop||i9||N_AMERICA||10": 0.9270989505247377, "Laptop||i9||N_AMERICA||11": 0.9313479623824452, "Laptop||i9||N_AMERICA||12": 0.931184407796102, "Networking Equipment||Large||APAC||1": 0.9231617647058824, "Networking Equipment||Large||APAC||2": 0.9256302521008404, "Networking Equipment||Large||APAC||3": 0.9262486126526083, "Networking Equipment||Large||APAC||4": 0.9258032624814632, "Networking Equipment||Large||APAC||5": 0.9275980392156863, "Networking Equipment||Large||APAC||6": 0.9285247432306256, "Networking Equipment||Large||APAC||7": 0.9231650182196772, "Networking Equipment||Large||APAC||8": 0.9212204507971413, "Networking Equipment||Large||APAC||9": 0.9285773884021694, "Networking Equipment||Large||APAC||10": 0.9249602543720191, "Networking Equipment||Large||APAC||11": 0.9278772378516624, "Networking Equipment||Large||APAC||12": 0.9254411764705882, "Networking Equipment||Large||CIS||1": 0.924624060150376, "Networking Equipment||Large||CIS||2": 0.9236933797909408, "Networking Equipment||Large||CIS||3": 0.9264285714285715, "Networking Equipment||Large||CIS||4": 0.9261904761904762, "Networking Equipment||Large||CIS||5": 0.9292198581560284, "Networking Equipment||Large||CIS||6": 0.9219428571428572, "Networking Equipment||Large||CIS||7": 0.9190744466800805, "Networking Equipment||Large||CIS||8": 0.9236271529888551, "Networking Equipment||Large||CIS||9": 0.9288075560802834, "Networking Equipment||Large||CIS||10": 0.9218021978021979, "Networking Equipment||Large||CIS||11": 0.9266023166023166, "Networking Equipment||Large||CIS||12": 0.927795918367347, "Networking Equipment||Large||EMENA||1": 0.9344444444444444, "Networking Equipment||Large||EMENA||2": 0.9250280583613917, "Networking Equipment||Large||EMENA||3": 0.9328703703703703, "Networking Equipment||Large||EMENA||4": 0.9255555555555556, "Networking Equipment||Large||EMENA||5": 0.9308119658119658, "Networking Equipment||Large||EMENA||6": 0.9296469366562825, "Networking Equipment||Large||EMENA||7": 0.9291534391534392, "Networking Equipment||Large||EMENA||8": 0.9245283018867925, "Networking Equipment||Large||EMENA||9": 0.9248397435897436, "Networking Equipment||Large||EMENA||10": 0.9263263263263264, "Networking Equipment||Large||EMENA||11": 0.9322404371584699, "Networking Equipment||Large||EMENA||12": 0.9319833852544133, "Networking Equipment||Large||N_AMERICA||1": 0.9252184769038702, "Networking Equipment||Large||N_AMERICA||2": 0.9263002364066194, "Networking Equipment||Large||N_AMERICA||3": 0.9239130434782609, "Networking Equipment||Large||N_AMERICA||4": 0.9287994891443168, "Networking Equipment||Large||N_AMERICA||5": 0.9210622710622711, "Networking Equipment||Large||N_AMERICA||6": 0.9258274231678487, "Networking Equipment||Large||N_AMERICA||7": 0.9207729468599034, "Networking Equipment||Large||N_AMERICA||8": 0.9260454002389487, "Networking Equipment||Large||N_AMERICA||9": 0.9202306079664571, "Networking Equipment||Large||N_AMERICA||10": 0.9221544715447154, "Networking Equipment||Large||N_AMERICA||11": 0.9242268041237114, "Networking Equipment||Large||N_AMERICA||12": 0.920138888888889, "Networking Equipment||Medium||APAC||1": 0.9, "Networking Equipment||Medium||APAC||2": 0.9, "Networking Equipment||Medium||APAC||3": 0.9666666666666667, "Networking Equipment||Medium||APAC||4": 0.9, "Networking Equipment||Medium||APAC||5": 0.9, "Networking Equipment||Medium||APAC||6": 0.9, "Networking Equipment||Medium||APAC||7": 0.9285714285714286, "Networking Equipment||Medium||APAC||8": 0.9, "Networking Equipment||Medium||APAC||9": 0.9, "Networking Equipment||Medium||APAC||10": 0.9166666666666667, "Networking Equipment||Medium||APAC||11": 0.9166666666666667, "Networking Equipment||Medium||APAC||12": 0.9666666666666667, "Networking Equipment||Medium||CIS||1": 0.9545454545454546, "Networking Equipment||Medium||CIS||2": 0.9400000000000001, "Networking Equipment||Medium||CIS||3": 0.9500000000000001, "Networking Equipment||Medium||CIS||4": 0.9, "Networking Equipment||Medium||CIS||5": 0.9, "Networking Equipment||Medium||CIS||6": 0.9, "Networking Equipment||Medium||CIS||7": 0.9, "Networking Equipment||Medium||CIS||8": 0.9400000000000001, "Networking Equipment||Medium||CIS||9": 0.9, "Networking Equipment||Medium||CIS||10": 0.9, "Networking Equipment||Medium||CIS||11": 1.0, "Networking Equipment||Medium||CIS||12": 0.9500000000000001, "Networking Equipment||Medium||EMENA||1": 0.9500000000000001, "Networking Equipment||Medium||EMENA||2": 0.9, "Networking Equipment||Medium||EMENA||3": 0.9, "Networking Equipment||Medium||EMENA||4": 0.9, "Networking Equipment||Medium||EMENA||5": 0.9333333333333333, "Networking Equipment||Medium||EMENA||6": 0.9, "Networking Equipment||Medium||EMENA||7": 0.9400000000000001, "Networking Equipment||Medium||EMENA||8": 0.9, "Networking Equipment||Medium||EMENA||9": 0.9222222222222223, "Networking Equipment||Medium||EMENA||10": 0.9400000000000001, "Networking Equipment||Medium||EMENA||11": 0.9, "Networking Equipment||Medium||EMENA||12": 0.9, "Networking Equipment||Medium||N_AMERICA||1": 0.9666666666666667, "Networking Equipment||Medium||N_AMERICA||2": 1.0, "Networking Equipment||Medium||N_AMERICA||3": 0.9, "Networking Equipment||Medium||N_AMERICA||4": 0.9, "Networking Equipment||Medium||N_AMERICA||5": 0.9333333333333333, "Networking Equipment||Medium||N_AMERICA||6": 0.9, "Networking Equipment||Medium||N_AMERICA||7": 0.9166666666666667, "Networking Equipment||Medium||N_AMERICA||8": 0.9, "Networking Equipment||Medium||N_AMERICA||9": 0.9, "Networking Equipment||Medium||N_AMERICA||10": 0.9, "Networking Equipment||Medium||N_AMERICA||11": 0.925, "Networking Equipment||Medium||N_AMERICA||12": 0.9333333333333333, "Smartphone||256GB||APAC||2": 0.9, "Smartphone||256GB||APAC||3": 0.9, "Smartphone||256GB||APAC||4": 0.9, "Smartphone||256GB||APAC||5": 0.9, "Smartphone||256GB||APAC||6": 0.9, "Smartphone||256GB||APAC||7": 0.9, "Smartphone||256GB||APAC||8": 0.9, "Smartphone||256GB||APAC||10": 0.9, "Smartphone||256GB||APAC||11": 0.9, "Smartphone||256GB||APAC||12": 0.9333333333333333, "Smartphone||256GB||CIS||1": 0.9, "Smartphone||256GB||CIS||2": 0.9, "Smartphone||256GB||CIS||3": 0.9, "Smartphone||256GB||CIS||4": 0.9, "Smartphone||256GB||CIS||5": 0.9, "Smartphone||256GB||CIS||6": 0.9, "Smartphone||256GB||CIS||7": 0.9400000000000001, "Smartphone||256GB||CIS||8": 0.9, "Smartphone||256GB||CIS||9": 0.9, "Smartphone||256GB||CIS||10": 0.9, "Smartphone||256GB||CIS||11": 0.9, "Smartphone||256GB||CIS||12": 0.9, "Smartphone||256GB||EMENA||1": 0.9, "Smartphone||256GB||EMENA||2": 0.9, "Smartphone||256GB||EMENA||3": 0.9, "Smartphone||256GB||EMENA||4": 0.9, "Smartphone||256GB||EMENA||5": 0.9, "Smartphone||256GB||EMENA||8": 0.9, "Smartphone||256GB||EMENA||9": 0.9, "Smartphone||256GB||EMENA||10": 0.9, "Smartphone||256GB||EMENA||11": 0.9, "Smartphone||256GB||EMENA||12": 0.9, "Smartphone||256GB||N_AMERICA||1": 0.9, "Smartphone||256GB||N_AMERICA||2": 0.9, "Smartphone||256GB||N_AMERICA||3": 0.9, "Smartphone||256GB||N_AMERICA||4": 0.9, "Smartphone||256GB||N_AMERICA||5": 0.9, "Smartphone||256GB||N_AMERICA||6": 0.9666666666666667, "Smartphone||256GB||N_AMERICA||7": 0.9, "Smartphone||256GB||N_AMERICA||8": 0.9, "Smartphone||256GB||N_AMERICA||9": 0.9, "Smartphone||256GB||N_AMERICA||10": 0.9, "Smartphone||256GB||N_AMERICA||11": 0.9, "Smartphone||256GB||N_AMERICA||12": 0.9571428571428572, "Smartphone||512GB||APAC||1": 0.9147428379963143, "Smartphone||512GB||APAC||2": 0.9154209856337516, "Smartphone||512GB||APAC||3": 0.9166882516188715, "Smartphone||512GB||APAC||4": 0.9180670753696358, "Smartphone||512GB||APAC||5": 0.9195267448796978, "Smartphone||512GB||APAC||6": 0.9200036370249136, "Smartphone||512GB||APAC||7": 0.9218589025755879, "Smartphone||512GB||APAC||8": 0.921591804570528, "Smartphone||512GB||APAC||9": 0.9183939601921757, "Smartphone||512GB||APAC||10": 0.9148238576909662, "Smartphone||512GB||APAC||11": 0.9300431930891058, "Smartphone||512GB||APAC||12": 0.9270025031289112, "Smartphone||512GB||CIS||1": 0.9274918300653595, "Smartphone||512GB||CIS||2": 0.9302514193025142, "Smartphone||512GB||CIS||3": 0.9286892361111111, "Smartphone||512GB||CIS||4": 0.9354320987654321, "Smartphone||512GB||CIS||5": 0.929296066252588, "Smartphone||512GB||CIS||6": 0.933826164874552, "Smartphone||512GB||CIS||7": 0.93253367003367, "Smartphone||512GB||CIS||8": 0.9318616629874908, "Smartphone||512GB||CIS||9": 0.9303626543209876, "Smartphone||512GB||CIS||10": 0.9293144208037826, "Smartphone||512GB||CIS||11": 0.9447786131996658, "Smartphone||512GB||CIS||12": 0.9368285504047094, "Smartphone||512GB||EMENA||1": 0.9280303030303031, "Smartphone||512GB||EMENA||2": 0.9244837758112094, "Smartphone||512GB||EMENA||3": 0.9192918192918194, "Smartphone||512GB||EMENA||4": 0.9228174603174604, "Smartphone||512GB||EMENA||5": 0.9197004608294931, "Smartphone||512GB||EMENA||6": 0.9207996406109614, "Smartphone||512GB||EMENA||7": 0.9234335839598997, "Smartphone||512GB||EMENA||8": 0.9194174757281554, "Smartphone||512GB||EMENA||9": 0.9199585921325052, "Smartphone||512GB||EMENA||10": 0.9222356739305893, "Smartphone||512GB||EMENA||11": 0.9302663438256659, "Smartphone||512GB||EMENA||12": 0.9329838357361293, "Smartphone||512GB||N_AMERICA||1": 0.919748427672956, "Smartphone||512GB||N_AMERICA||2": 0.9218876941457587, "Smartphone||512GB||N_AMERICA||3": 0.9245862884160757, "Smartphone||512GB||N_AMERICA||4": 0.9211708482676225, "Smartphone||512GB||N_AMERICA||5": 0.9181369248035915, "Smartphone||512GB||N_AMERICA||6": 0.9186574074074074, "Smartphone||512GB||N_AMERICA||7": 0.9171352074966533, "Smartphone||512GB||N_AMERICA||8": 0.9219201725997843, "Smartphone||512GB||N_AMERICA||9": 0.9208616780045352, "Smartphone||512GB||N_AMERICA||10": 0.9207127882599581, "Smartphone||512GB||N_AMERICA||11": 0.929865005192108, "Smartphone||512GB||N_AMERICA||12": 0.9316444444444445, "TV||50 inch||APAC||1": 0.9133333333333333, "TV||50 inch||APAC||2": 0.9500000000000001, "TV||50 inch||APAC||3": 0.9512820512820513, "TV||50 inch||APAC||4": 0.9666666666666667, "TV||50 inch||APAC||5": 0.9416666666666667, "TV||50 inch||APAC||6": 0.9285714285714286, "TV||50 inch||APAC||7": 0.9476190476190476, "TV||50 inch||APAC||8": 0.92, "TV||50 inch||APAC||9": 0.9333333333333333, "TV||50 inch||APAC||10": 0.9256410256410257, "TV||50 inch||APAC||11": 0.9296296296296297, "TV||50 inch||APAC||12": 0.9370370370370371, "TV||50 inch||CIS||1": 0.9458333333333333, "TV||50 inch||CIS||2": 0.9222222222222223, "TV||50 inch||CIS||3": 0.9333333333333333, "TV||50 inch||CIS||4": 0.9466666666666667, "TV||50 inch||CIS||5": 0.9148148148148149, "TV||50 inch||CIS||6": 0.9205128205128206, "TV||50 inch||CIS||7": 0.9333333333333333, "TV||50 inch||CIS||8": 0.9074074074074074, "TV||50 inch||CIS||9": 0.9166666666666667, "TV||50 inch||CIS||10": 0.9424242424242425, "TV||50 inch||CIS||11": 0.9392156862745098, "TV||50 inch||CIS||12": 0.9238095238095239, "TV||50 inch||EMENA||1": 0.9370370370370371, "TV||50 inch||EMENA||2": 0.9518518518518518, "TV||50 inch||EMENA||3": 0.9466666666666667, "TV||50 inch||EMENA||4": 0.9296296296296297, "TV||50 inch||EMENA||5": 0.9133333333333333, "TV||50 inch||EMENA||6": 0.9416666666666667, "TV||50 inch||EMENA||7": 0.9380952380952381, "TV||50 inch||EMENA||8": 0.9571428571428572, "TV||50 inch||EMENA||9": 0.9476190476190476, "TV||50 inch||EMENA||10": 0.9222222222222223, "TV||50 inch||EMENA||11": 0.9274509803921569, "TV||50 inch||EMENA||12": 0.9380952380952381, "TV||50 inch||N_AMERICA||1": 0.9222222222222223, "TV||50 inch||N_AMERICA||2": 0.9476190476190476, "TV||50 inch||N_AMERICA||3": 0.9444444444444444, "TV||50 inch||N_AMERICA||4": 0.9476190476190476, "TV||50 inch||N_AMERICA||5": 0.9370370370370371, "TV||50 inch||N_AMERICA||6": 0.9476190476190476, "TV||50 inch||N_AMERICA||7": 0.9111111111111111, "TV||50 inch||N_AMERICA||8": 0.9166666666666667, "TV||50 inch||N_AMERICA||9": 0.9, "TV||50 inch||N_AMERICA||10": 0.9, "TV||50 inch||N_AMERICA||11": 0.9, "TV||50 inch||N_AMERICA||12": 0.9, "TV||65 inch||APAC||1": 0.918918918918919, "TV||65 inch||APAC||2": 0.9242424242424243, "TV||65 inch||APAC||3": 0.9177648040033362, "TV||65 inch||APAC||4": 0.9194696969696969, "TV||65 inch||APAC||5": 0.9185770750988143, "TV||65 inch||APAC||6": 0.9216942148760331, "TV||65 inch||APAC||7": 0.9205533596837945, "TV||65 inch||APAC||8": 0.9222873900293256, "TV||65 inch||APAC||9": 0.9175145954962469, "TV||65 inch||APAC||10": 0.9232727272727272, "TV||65 inch||APAC||11": 0.9227272727272727, "TV||65 inch||APAC||12": 0.9181134654818865, "TV||65 inch||CIS||1": 0.922542232068679, "TV||65 inch||CIS||2": 0.9207069127306851, "TV||65 inch||CIS||3": 0.9240372670807454, "TV||65 inch||CIS||4": 0.9275992438563327, "TV||65 inch||CIS||5": 0.9205097451274363, "TV||65 inch||CIS||6": 0.9205594876980114, "TV||65 inch||CIS||7": 0.9177998249197549, "TV||65 inch||CIS||8": 0.9195796141664268, "TV||65 inch||CIS||9": 0.9162812210915819, "TV||65 inch||CIS||10": 0.9205982115325316, "TV||65 inch||CIS||11": 0.9192816635160681, "TV||65 inch||CIS||12": 0.9205217391304348, "TV||65 inch||EMENA||1": 0.9193708609271524, "TV||65 inch||EMENA||2": 0.9180288461538462, "TV||65 inch||EMENA||3": 0.9248550724637682, "TV||65 inch||EMENA||4": 0.9180327868852459, "TV||65 inch||EMENA||5": 0.9200268817204301, "TV||65 inch||EMENA||6": 0.9216284987277354, "TV||65 inch||EMENA||7": 0.9164330218068536, "TV||65 inch||EMENA||8": 0.9206790123456791, "TV||65 inch||EMENA||9": 0.9170081967213115, "TV||65 inch||EMENA||10": 0.9218085106382979, "TV||65 inch||EMENA||11": 0.924, "TV||65 inch||EMENA||12": 0.9208683473389356, "TV||65 inch||N_AMERICA||1": 0.9244382022471911, "TV||65 inch||N_AMERICA||2": 0.922316384180791, "TV||65 inch||N_AMERICA||3": 0.920959595959596, "TV||65 inch||N_AMERICA||4": 0.9161931818181819, "TV||65 inch||N_AMERICA||5": 0.9217948717948719, "TV||65 inch||N_AMERICA||6": 0.9196629213483146, "TV||65 inch||N_AMERICA||7": 0.9151162790697674, "TV||65 inch||N_AMERICA||8": 0.9242753623188406, "TV||65 inch||N_AMERICA||9": 0.9198717948717949, "TV||65 inch||N_AMERICA||10": 0.9208333333333334, "TV||65 inch||N_AMERICA||11": 0.9210185185185186, "TV||65 inch||N_AMERICA||12": 0.9170682730923695, "Smartphone||128GB||N_AMERICA||1": 1.0, "Smartphone||128GB||N_AMERICA||2": 1.0, "Smartphone||128GB||N_AMERICA||3": 1.0, "Smartphone||128GB||N_AMERICA||4": 1.0, "Smartphone||128GB||N_AMERICA||5": 1.0, "Smartphone||128GB||N_AMERICA||6": 1.0, "Smartphone||128GB||N_AMERICA||7": 1.0, "Smartphone||128GB||N_AMERICA||8": 1.0, "Smartphone||128GB||N_AMERICA||9": 1.0, "Smartphone||128GB||N_AMERICA||10": 1.0, "Smartphone||128GB||N_AMERICA||11": 1.0, "Smartphone||128GB||N_AMERICA||12": 1.0, "Smartphone||128GB||EMENA||1": 1.0, "Smartphone||128GB||EMENA||2": 1.0, "Smartphone||128GB||EMENA||3": 1.0, "Smartphone||128GB||EMENA||4": 1.0, "Smartphone||128GB||EMENA||5": 1.0, "Smartphone||128GB||EMENA||6": 1.0, "Smartphone||128GB||EMENA||7": 1.0, "Smartphone||128GB||EMENA||8": 1.0, "Smartphone||128GB||EMENA||9": 1.0, "Smartphone||128GB||EMENA||10": 1.0, "Smartphone||128GB||EMENA||11": 1.0, "Smartphone||128GB||EMENA||12": 1.0, "Smartphone||128GB||APAC||1": 1.0, "Smartphone||128GB||APAC||2": 1.0, "Smartphone||128GB||APAC||3": 1.0, "Smartphone||128GB||APAC||4": 1.0, "Smartphone||128GB||APAC||5": 1.0, "Smartphone||128GB||APAC||6": 1.0, "Smartphone||128GB||APAC||7": 1.0, "Smartphone||128GB||APAC||8": 1.0, "Smartphone||128GB||APAC||9": 1.0, "Smartphone||128GB||APAC||10": 1.0, "Smartphone||128GB||APAC||11": 1.0, "Smartphone||128GB||APAC||12": 1.0, "Smartphone||128GB||CIS||1": 1.0, "Smartphone||128GB||CIS||2": 1.0, "Smartphone||128GB||CIS||3": 1.0, "Smartphone||128GB||CIS||4": 1.0, "Smartphone||128GB||CIS||5": 1.0, "Smartphone||128GB||CIS||6": 1.0, "Smartphone||128GB||CIS||7": 1.0, "Smartphone||128GB||CIS||8": 1.0, "Smartphone||128GB||CIS||9": 1.0, "Smartphone||128GB||CIS||10": 1.0, "Smartphone||128GB||CIS||11": 1.0, "Smartphone||128GB||CIS||12": 1.0, "Smartphone||256GB||EMENA||6": 0.9222222222222222, "Smartphone||256GB||EMENA||7": 0.9133333333333334, "Smartphone||256GB||APAC||1": 0.9, "Smartphone||256GB||APAC||9": 0.9, "Laptop||i5||N_AMERICA||1": 1.0, "Laptop||i5||N_AMERICA||2": 1.0, "Laptop||i5||N_AMERICA||3": 1.0, "Laptop||i5||N_AMERICA||4": 1.0, "Laptop||i5||N_AMERICA||5": 1.0, "Laptop||i5||N_AMERICA||6": 1.0, "Laptop||i5||N_AMERICA||7": 1.0, "Laptop||i5||N_AMERICA||8": 1.0, "Laptop||i5||N_AMERICA||9": 1.0, "Laptop||i5||N_AMERICA||10": 1.0, "Laptop||i5||N_AMERICA||11": 1.0, "Laptop||i5||N_AMERICA||12": 1.0, "Laptop||i5||EMENA||1": 1.0, "Laptop||i5||EMENA||2": 1.0, "Laptop||i5||EMENA||3": 1.0, "Laptop||i5||EMENA||4": 1.0, "Laptop||i5||EMENA||5": 1.0, "Laptop||i5||EMENA||6": 1.0, "Laptop||i5||EMENA||7": 1.0, "Laptop||i5||EMENA||8": 1.0, "Laptop||i5||EMENA||9": 1.0, "Laptop||i5||EMENA||10": 1.0, "Laptop||i5||EMENA||11": 1.0, "Laptop||i5||EMENA||12": 1.0, "Laptop||i5||APAC||1": 1.0, "Laptop||i5||APAC||2": 1.0, "Laptop||i5||APAC||3": 1.0, "Laptop||i5||APAC||4": 1.0, "Laptop||i5||APAC||5": 1.0, "Laptop||i5||APAC||6": 1.0, "Laptop||i5||APAC||7": 1.0, "Laptop||i5||APAC||8": 1.0, "Laptop||i5||APAC||9": 1.0, "Laptop||i5||APAC||10": 1.0, "Laptop||i5||APAC||11": 1.0, "Laptop||i5||APAC||12": 1.0, "Laptop||i5||CIS||1": 1.0, "Laptop||i5||CIS||2": 1.0, "Laptop||i5||CIS||3": 1.0, "Laptop||i5||CIS||4": 1.0, "Laptop||i5||CIS||5": 1.0, "Laptop||i5||CIS||6": 1.0, "Laptop||i5||CIS||7": 1.0, "Laptop||i5||CIS||8": 1.0, "Laptop||i5||CIS||9": 1.0, "Laptop||i5||CIS||10": 1.0, "Laptop||i5||CIS||11": 1.0, "Laptop||i5||CIS||12": 1.0, "TV||32 inch||N_AMERICA||1": 1.0, "TV||32 inch||N_AMERICA||2": 1.0, "TV||32 inch||N_AMERICA||3": 1.0, "TV||32 inch||N_AMERICA||4": 1.0, "TV||32 inch||N_AMERICA||5": 1.0, "TV||32 inch||N_AMERICA||6": 1.0, "TV||32 inch||N_AMERICA||7": 1.0, "TV||32 inch||N_AMERICA||8": 1.0, "TV||32 inch||N_AMERICA||9": 1.0, "TV||32 inch||N_AMERICA||10": 1.0, "TV||32 inch||N_AMERICA||11": 1.0, "TV||32 inch||N_AMERICA||12": 1.0, "TV||32 inch||EMENA||1": 1.0, "TV||32 inch||EMENA||2": 1.0, "TV||32 inch||EMENA||3": 1.0, "TV||32 inch||EMENA||4": 1.0, "TV||32 inch||EMENA||5": 1.0, "TV||32 inch||EMENA||6": 1.0, "TV||32 inch||EMENA||7": 1.0, "TV||32 inch||EMENA||8": 1.0, "TV||32 inch||EMENA||9": 1.0, "TV||32 inch||EMENA||10": 1.0, "TV||32 inch||EMENA||11": 1.0, "TV||32 inch||EMENA||12": 1.0, "TV||32 inch||APAC||1": 1.0, "TV||32 inch||APAC||2": 1.0, "TV||32 inch||APAC||3": 1.0, "TV||32 inch||APAC||4": 1.0, "TV||32 inch||APAC||5": 1.0, "TV||32 inch||APAC||6": 1.0, "TV||32 inch||APAC||7": 1.0, "TV||32 inch||APAC||8": 1.0, "TV||32 inch||APAC||9": 1.0, "TV||32 inch||APAC||10": 1.0, "TV||32 inch||APAC||11": 1.0, "TV||32 inch||APAC||12": 1.0, "TV||32 inch||CIS||1": 1.0, "TV||32 inch||CIS||2": 1.0, "TV||32 inch||CIS||3": 1.0, "TV||32 inch||CIS||4": 1.0, "TV||32 inch||CIS||5": 1.0, "TV||32 inch||CIS||6": 1.0, "TV||32 inch||CIS||7": 1.0, "TV||32 inch||CIS||8": 1.0, "TV||32 inch||CIS||9": 1.0, "TV||32 inch||CIS||10": 1.0, "TV||32 inch||CIS||11": 1.0, "TV||32 inch||CIS||12": 1.0, "Air Conditioner||1 Ton||N_AMERICA||1": 1.0, "Air Conditioner||1 Ton||N_AMERICA||2": 1.0, "Air Conditioner||1 Ton||N_AMERICA||3": 1.0, "Air Conditioner||1 Ton||N_AMERICA||4": 1.0, "Air Conditioner||1 Ton||N_AMERICA||5": 1.0, "Air Conditioner||1 Ton||N_AMERICA||6": 1.0, "Air Conditioner||1 Ton||N_AMERICA||7": 1.0, "Air Conditioner||1 Ton||N_AMERICA||8": 1.0, "Air Conditioner||1 Ton||N_AMERICA||9": 1.0, "Air Conditioner||1 Ton||N_AMERICA||10": 1.0, "Air Conditioner||1 Ton||N_AMERICA||11": 1.0, "Air Conditioner||1 Ton||N_AMERICA||12": 1.0, "Air Conditioner||1 Ton||EMENA||1": 1.0, "Air Conditioner||1 Ton||EMENA||2": 1.0, "Air Conditioner||1 Ton||EMENA||3": 1.0, "Air Conditioner||1 Ton||EMENA||4": 1.0, "Air Conditioner||1 Ton||EMENA||5": 1.0, "Air Conditioner||1 Ton||EMENA||6": 1.0, "Air Conditioner||1 Ton||EMENA||7": 1.0, "Air Conditioner||1 Ton||EMENA||8": 1.0, "Air Conditioner||1 Ton||EMENA||9": 1.0, "Air Conditioner||1 Ton||EMENA||10": 1.0, "Air Conditioner||1 Ton||EMENA||11": 1.0, "Air Conditioner||1 Ton||EMENA||12": 1.0, "Air Conditioner||1 Ton||APAC||1": 1.0, "Air Conditioner||1 Ton||APAC||2": 1.0, "Air Conditioner||1 Ton||APAC||3": 1.0, "Air Conditioner||1 Ton||APAC||4": 1.0, "Air Conditioner||1 Ton||APAC||5": 1.0, "Air Conditioner||1 Ton||APAC||6": 1.0, "Air Conditioner||1 Ton||APAC||7": 1.0, "Air Conditioner||1 Ton||APAC||8": 1.0, "Air Conditioner||1 Ton||APAC||9": 1.0, "Air Conditioner||1 Ton||APAC||10": 1.0, "Air Conditioner||1 Ton||APAC||11": 1.0, "Air Conditioner||1 Ton||APAC||12": 1.0, "Air Conditioner||1 Ton||CIS||1": 1.0, "Air Conditioner||1 Ton||CIS||2": 1.0, "Air Conditioner||1 Ton||CIS||3": 1.0, "Air Conditioner||1 Ton||CIS||4": 1.0, "Air Conditioner||1 Ton||CIS||5": 1.0, "Air Conditioner||1 Ton||CIS||6": 1.0, "Air Conditioner||1 Ton||CIS||7": 1.0, "Air Conditioner||1 Ton||CIS||8": 1.0, "Air Conditioner||1 Ton||CIS||9": 1.0, "Air Conditioner||1 Ton||CIS||10": 1.0, "Air Conditioner||1 Ton||CIS||11": 1.0, "Air Conditioner||1 Ton||CIS||12": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||4": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||5": 1.0, "Air Conditioner||1.5 Ton||N_AMERICA||10": 0.9, "Air Conditioner||1.5 Ton||N_AMERICA||11": 0.9, "Air Conditioner||1.5 Ton||EMENA||4": 1.0, "Air Conditioner||1.5 Ton||EMENA||5": 1.0, "Air Conditioner||1.5 Ton||EMENA||7": 0.9, "Air Conditioner||1.5 Ton||EMENA||10": 0.9, "Air Conditioner||1.5 Ton||EMENA||11": 0.9, "Air Conditioner||1.5 Ton||EMENA||12": 0.9, "Air Conditioner||1.5 Ton||APAC||1": 0.9, "Air Conditioner||1.5 Ton||APAC||3": 0.9, "Air Conditioner||1.5 Ton||APAC||4": 1.0, "Air Conditioner||1.5 Ton||APAC||5": 1.0, "Air Conditioner||1.5 Ton||APAC||6": 0.9, "Air Conditioner||1.5 Ton||APAC||7": 0.9, "Air Conditioner||1.5 Ton||APAC||8": 0.9, "Air Conditioner||1.5 Ton||APAC||9": 0.9, "Air Conditioner||1.5 Ton||APAC||11": 0.9, "Air Conditioner||1.5 Ton||APAC||12": 0.9, "Air Conditioner||1.5 Ton||CIS||1": 0.9, "Air Conditioner||1.5 Ton||CIS||2": 0.9, "Air Conditioner||1.5 Ton||CIS||3": 0.9, "Air Conditioner||1.5 Ton||CIS||4": 1.0, "Air Conditioner||1.5 Ton||CIS||5": 1.0, "Air Conditioner||1.5 Ton||CIS||12": 0.9, "Accessory||Basic||N_AMERICA||1": 1.0, "Accessory||Basic||N_AMERICA||2": 1.0, "Accessory||Basic||N_AMERICA||3": 1.0, "Accessory||Basic||N_AMERICA||4": 1.0, "Accessory||Basic||N_AMERICA||5": 1.0, "Accessory||Basic||N_AMERICA||6": 1.0, "Accessory||Basic||N_AMERICA||7": 1.0, "Accessory||Basic||N_AMERICA||8": 1.0, "Accessory||Basic||N_AMERICA||9": 1.0, "Accessory||Basic||N_AMERICA||10": 1.0, "Accessory||Basic||N_AMERICA||11": 1.0, "Accessory||Basic||N_AMERICA||12": 1.0, "Accessory||Basic||EMENA||1": 1.0, "Accessory||Basic||EMENA||2": 1.0, "Accessory||Basic||EMENA||3": 1.0, "Accessory||Basic||EMENA||4": 1.0, "Accessory||Basic||EMENA||5": 1.0, "Accessory||Basic||EMENA||6": 1.0, "Accessory||Basic||EMENA||7": 1.0, "Accessory||Basic||EMENA||8": 1.0, "Accessory||Basic||EMENA||9": 1.0, "Accessory||Basic||EMENA||10": 1.0, "Accessory||Basic||EMENA||11": 1.0, "Accessory||Basic||EMENA||12": 1.0, "Accessory||Basic||APAC||1": 1.0, "Accessory||Basic||APAC||2": 1.0, "Accessory||Basic||APAC||3": 1.0, "Accessory||Basic||APAC||4": 1.0, "Accessory||Basic||APAC||5": 1.0, "Accessory||Basic||APAC||6": 1.0, "Accessory||Basic||APAC||7": 1.0, "Accessory||Basic||APAC||8": 1.0, "Accessory||Basic||APAC||9": 1.0, "Accessory||Basic||APAC||10": 1.0, "Accessory||Basic||APAC||11": 1.0, "Accessory||Basic||APAC||12": 1.0, "Accessory||Basic||CIS||1": 1.0, "Accessory||Basic||CIS||2": 1.0, "Accessory||Basic||CIS||3": 1.0, "Accessory||Basic||CIS||4": 1.0, "Accessory||Basic||CIS||5": 1.0, "Accessory||Basic||CIS||6": 1.0, "Accessory||Basic||CIS||7": 1.0, "Accessory||Basic||CIS||8": 1.0, "Accessory||Basic||CIS||9": 1.0, "Accessory||Basic||CIS||10": 1.0, "Accessory||Basic||CIS||11": 1.0, "Accessory||Basic||CIS||12": 1.0, "Networking Equipment||Small||N_AMERICA||1": 1.0, "Networking Equipment||Small||N_AMERICA||2": 1.0, "Networking Equipment||Small||N_AMERICA||3": 1.0, "Networking Equipment||Small||N_AMERICA||4": 1.0, "Networking Equipment||Small||N_AMERICA||5": 1.0, "Networking Equipment||Small||N_AMERICA||6": 1.0, "Networking Equipment||Small||N_AMERICA||7": 1.0, "Networking Equipment||Small||N_AMERICA||8": 1.0, "Networking Equipment||Small||N_AMERICA||9": 1.0, "Networking Equipment||Small||N_AMERICA||10": 1.0, "Networking Equipment||Small||N_AMERICA||11": 1.0, "Networking Equipment||Small||N_AMERICA||12": 1.0, "Networking Equipment||Small||EMENA||1": 1.0, "Networking Equipment||Small||EMENA||2": 1.0, "Networking Equipment||Small||EMENA||3": 1.0, "Networking Equipment||Small||EMENA||4": 1.0, "Networking Equipment||Small||EMENA||5": 1.0, "Networking Equipment||Small||EMENA||6": 1.0, "Networking Equipment||Small||EMENA||7": 1.0, "Networking Equipment||Small||EMENA||8": 1.0, "Networking Equipment||Small||EMENA||9": 1.0, "Networking Equipment||Small||EMENA||10": 1.0, "Networking Equipment||Small||EMENA||11": 1.0, "Networking Equipment||Small||EMENA||12": 1.0, "Networking Equipment||Small||APAC||1": 1.0, "Networking Equipment||Small||APAC||2": 1.0, "Networking Equipment||Small||APAC||3": 1.0, "Networking Equipment||Small||APAC||4": 1.0, "Networking Equipment||Small||APAC||5": 1.0, "Networking Equipment||Small||APAC||6": 1.0, "Networking Equipment||Small||APAC||7": 1.0, "Networking Equipment||Small||APAC||8": 1.0, "Networking Equipment||Small||APAC||9": 1.0, "Networking Equipment||Small||APAC||10": 1.0, "Networking Equipment||Small||APAC||11": 1.0, "Networking Equipment||Small||APAC||12": 1.0, "Networking Equipment||Small||CIS||1": 1.0, "Networking Equipment||Small||CIS||2": 1.0, "Networking Equipment||Small||CIS||3": 1.0, "Networking Equipment||Small||CIS||4": 1.0, "Networking Equipment||Small||CIS||5": 1.0, "Networking Equipment||Small||CIS||6": 1.0, "Networking Equipment||Small||CIS||7": 1.0, "Networking Equipment||Small||CIS||8": 1.0, "Networking Equipment||Small||CIS||9": 1.0, "Networking Equipment||Small||CIS||10": 1.0, "Networking Equipment||Small||CIS||11": 1.0, "Networking Equipment||Small||CIS||12": 1.0};
 function getSPF(prod,sub,region,month){
-  const patterns={
-    "Air Conditioner":[0.1,0.1,0.3,0.5,0.7,1.0,1.0,0.9,0.6,0.3,0.1,0.1],
-    "Smartphone":[0.4,0.3,0.4,0.5,0.5,0.5,0.6,0.7,0.7,0.8,0.9,1.0],
-    "Laptop":[0.4,0.3,0.5,0.5,0.5,0.4,0.5,1.0,1.0,0.7,0.5,0.4],
-    "TV":[0.6,0.5,0.5,0.5,0.6,0.6,0.7,0.7,0.6,0.7,0.9,1.0],
-    "Accessory":[0.5,0.5,0.5,0.5,0.6,0.6,0.7,0.7,0.6,0.7,0.8,1.0],
-    "Networking Equipment":[0.6,0.6,0.7,0.8,0.8,0.8,0.7,0.7,0.9,0.9,0.7,0.6]
-  };
-  const norm=(patterns[prod]||Array(12).fill(0.5))[month-1];
-  return 0.9+norm*0.2;
+  const key=prod+"||"+sub+"||"+region+"||"+month;
+  const v=SPF_LOOKUP[key];
+  if(v!==undefined) return v;
+  // Fallback: average across regions for this month
+  const regs=["N_AMERICA","EMENA","APAC","CIS"];
+  const vals=regs.map(r=>SPF_LOOKUP[prod+"||"+sub+"||"+r+"||"+month]).filter(x=>x!==undefined);
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:1.0;
 }
 
 // Map free-text segment label → internal pricing tier
@@ -756,10 +821,10 @@ function dynamicPrice(row,predMargin){
     ? Math.max(0.01,Math.min(0.99,predMargin))
     : Math.max(rules.margin_min,Math.min(predMargin,rules.margin_target));
   const costPrice=(row.cost*(1+row.tariff))/(1-margin);
-  const sf=getSeasonMult(row.prod,row.month);
+  const sf=getSeasonMult(row.prod,row.month,row.sub,row.region);
   const spf=getSPF(row.prod,row.sub,row.region,row.month);
-  const comp=row.cost*1.25; // fixed competitor price (notebook: row.cost * 1.25)
   const base=costPrice*sf*spf;
+  const comp=base*1.0; // notebook: base * (1 + random(-0.03,0.03)); deterministic midpoint = base * 1.0
   let price;
   if(rules.strategy==="stable")       price=0.7*(row.cost*1.3)+0.3*base;
   else if(rules.strategy==="competitive") price=(base+comp)/2;
@@ -981,8 +1046,8 @@ function computePrice(){
   const cost=getCost(prod,sub);
   const tariffRaw=document.getElementById('f-tariff').value;
   const tariff=tariffRaw!==''?parseFloat(tariffRaw):getTariff(c.region,prod,sub);
-  const elasticity=getElasticity(prod,sub);
-  const sf=getSeasonMult(prod,month);
+  const elasticity=getElasticity(prod,sub,c.region);
+  const sf=getSeasonMult(prod,month,sub,c.region);
   const spf=getSPF(prod,sub,c.region,month);
   const season=getSeason(month);
   const marginOvr=document.getElementById('f-margin-ovr').value;
@@ -1010,9 +1075,10 @@ function computePrice(){
     document.getElementById('r-price').textContent=f(finalPrice);
     document.getElementById('r-margin').textContent=p((finalPrice - cost*(1+tariff)) / finalPrice);
     document.getElementById('r-disc').textContent=p(discount);
-    document.getElementById('r-floor').textContent=f(neg.floor);
-    document.getElementById('r-target').textContent=f(neg.target);
-    document.getElementById('r-ceil').textContent=f(neg.ceil);
+    const priceBeforeDiscount=finalPrice/(1-discount);
+    document.getElementById('r-floor').textContent=f(costPrice);
+    document.getElementById('r-target').textContent=f(priceBeforeDiscount);
+    document.getElementById('r-ceil').textContent=f(finalPrice);
 
     // Margin override indicator for breakdown row 5
     const marginOvrActive=marginOvr!=='';
@@ -1023,40 +1089,86 @@ function computePrice(){
       ? `Override value ${parseFloat(marginOvr).toFixed(4)} used as-is (no tier clamp). Only safety bound [0.01–0.99] applied.`
       : `Model prediction, clamped [${rules.margin_min?'':''}${(rules.margin_min*100).toFixed(0)}%–${(rules.margin_target*100).toFixed(0)}%]`;
 
+    const costIT=cost*(1+tariff);
+
+    // ── Before Tariff calculations (needed for Tariff Impact section) ──────
+    const costIT0=cost;
+    const costPrice0=costIT0/(1-margin);
+    const sf0=getSeasonMult(prod,month,sub,region);
+    const spf0=getSPF(prod,sub,region,month);
+    const base0=costPrice0*sf0*spf0;
+    const comp0=base0;
+    let preBD0=0,stratSub0='';
+    if(rules.strategy==='stable'){preBD0=0.7*(cost*1.3)+0.3*base0;stratSub0=`= 0.7 × ${f(cost*1.3)} + 0.3 × ${f(base0)} = ${f(preBD0)}`;}
+    else if(rules.strategy==='competitive'){preBD0=(base0+comp0)/2;stratSub0=`= (${f(base0)} + ${f(comp0)}) ÷ 2 = ${f(preBD0)}`;}
+    else{preBD0=base0*1.15;stratSub0=`= ${f(base0)} × 1.15 = ${f(preBD0)}`;}
+    const finalPrice0=preBD0*(1-discount);
+    const cmBD0=(preBD0-costIT0)/preBD0;
+    const cmAD0=(finalPrice0-costIT0)/finalPrice0;
+
+    // Tariff impact (from notebook Cell 46 logic)
+    // Margin Loss = how much margin % is lost if you sell at before-tariff price but bear after-tariff costs
+    const marginLoss=cmAD0-((finalPrice0-costIT)/finalPrice0);
+    const revenueGap=(finalPrice-finalPrice0)*qty;
+
+    const cmBeforeDisc=(priceBeforeDiscount - costIT)/priceBeforeDiscount;
+    const cmAfterDisc=(finalPrice - costIT)/finalPrice;
+
+    // Strategy labels — strategy uses Base Price (costPrice * sf * spf), not costPrice
     let strategyFormula='', stratSub='';
-    const priceBeforeDiscount=finalPrice/(1-discount);
     if(rules.strategy==='stable'){
-      const anchor=cost*1.3;
-      strategyFormula=`Stable: 0.7 × (Cost × 1.3) + 0.3 × Cost Price`;
-      stratSub=`= 0.7 × ${f(anchor)} + 0.3 × ${f(costPrice)} = ${f(priceBeforeDiscount)}`;
+      strategyFormula=`Stable: 0.7 × (Cost × 1.3) + 0.3 × Base Price`;
+      stratSub=`= 0.7 × ${f(cost*1.3)} + 0.3 × ${f(base)} = ${f(priceBeforeDiscount)}`;
     } else if(rules.strategy==='competitive'){
-      strategyFormula=`Competitive: (Cost Price + comp) ÷ 2`;
-      stratSub=`= (${f(costPrice)} + ${f(comp)}) ÷ 2 = ${f(priceBeforeDiscount)}`;
+      strategyFormula=`Competitive: (Base Price + comp) ÷ 2`;
+      stratSub=`= (${f(base)} + ${f(comp)}) ÷ 2 = ${f(priceBeforeDiscount)}`;
     } else {
-      strategyFormula=`High-price: Cost Price × 1.15`;
-      stratSub=`= ${f(costPrice)} × 1.15 = ${f(priceBeforeDiscount)}`;
+      strategyFormula=`High-price: Base Price × 1.15`;
+      stratSub=`= ${f(base)} × 1.15 = ${f(priceBeforeDiscount)}`;
     }
 
     document.getElementById('r-bdown').innerHTML=`
       <tr class="bdown-hdr"><td colspan="2">Variable Definitions</td></tr>
-      <tr class="bdown-def"><td>Cost &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— base product cost</span></td><td>${f(cost)}<span class="bdown-sub">catalog lookup: ${prod} / ${sub}</span></td></tr>
-      <tr class="bdown-def"><td>T &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— tariff rate</span></td><td>${(tariff*100).toFixed(2)}%<span class="bdown-sub">region rate (${region}) × product modifier</span></td></tr>
-      <tr class="bdown-def"><td>M &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— margin used</span></td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginOvrActive?'from Margin Override — used directly':'model prediction, clamped ['+rules.margin_min*100|0+'%–'+rules.margin_target*100|0+'%]'}</span></td></tr>
-      <tr class="bdown-def"><td>comp &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— competitor reference price</span></td><td>${f(comp)}<span class="bdown-sub">Cost × 1.25 = ${f(cost)} × 1.25</span></td></tr>
-      <tr class="bdown-def"><td>Cost Price &nbsp;<span style="font-weight:400;font-family:sans-serif;font-size:10px;color:#6b7280">— margin-derived price floor</span></td><td>${f(costPrice)}<span class="bdown-sub">see row 7 below</span></td></tr>
+      <tr class="bdown-def"><td>Cost<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— base product cost</span></td><td>${f(cost)}<span class="bdown-sub">catalog: ${prod} / ${sub}</span></td></tr>
+      <tr class="bdown-def"><td>T<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— tariff rate</span></td><td>${(tariff*100).toFixed(2)}%<span class="bdown-sub">${region} region × product modifier</span></td></tr>
+      <tr class="bdown-def"><td>M<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— margin used</span></td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginOvrActive?'Margin Override (direct)':'model prediction, clamped to tier'}</span></td></tr>
+      <tr class="bdown-def"><td>SF<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— season factor</span></td><td>${sf.toFixed(4)}<span class="bdown-sub">${getSeason(month)} demand multiplier for ${prod}</span></td></tr>
+      <tr class="bdown-def"><td>SPF<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— sales pressure factor</span></td><td>${spf.toFixed(4)}<span class="bdown-sub">monthly demand pressure (0.9–1.1), month ${month}</span></td></tr>
+      <tr class="bdown-def"><td>Cost Price<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— margin-derived floor</span></td><td>${f(costPrice)}<span class="bdown-sub">see step 6 below</span></td></tr>
+      <tr class="bdown-def"><td>Base Price<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— season+pressure adjusted</span></td><td>${f(base)}<span class="bdown-sub">Cost Price × SF × SPF</span></td></tr>
 
-      <tr class="bdown-hdr"><td colspan="2">Step-by-Step Calculation</td></tr>
-      <tr><td>1. Client / Segment / Region</td><td style="font-size:11px">${clientName} · ${seg} · ${region}<span class="bdown-sub">Pricing Tier resolved: ${rules.tier}</span></td></tr>
-      <tr><td>2. Base Cost</td><td>${f(cost)}<span class="bdown-sub">Cost = ${f(cost)}</span></td></tr>
-      <tr><td>3. Tariff Amount<span class="bdown-sub">Cost × T</span></td><td>+${f(cost*tariff)}<span class="bdown-sub">= ${f(cost)} × ${(tariff).toFixed(4)} = +${f(cost*tariff)}</span></td></tr>
-      <tr><td>4. Cost incl. Tariff<span class="bdown-sub">Cost × (1 + T)</span></td><td>${f(cost*(1+tariff))}<span class="bdown-sub">= ${f(cost)} × (1 + ${tariff.toFixed(4)}) = ${f(cost*(1+tariff))}</span></td></tr>
+      <tr class="bdown-hdr"><td colspan="2">Step-by-Step Calculation (After Tariff)</td></tr>
+      <tr><td>1. Client / Segment / Region</td><td style="font-size:11px">${clientName} · ${seg} · ${region}<span class="bdown-sub">Tier: ${rules.tier} — ${rules.strategy}</span></td></tr>
+      <tr><td>2. Base Cost</td><td>${f(cost)}</td></tr>
+      <tr><td>3. Tariff Amount<span class="bdown-sub">Cost × T</span></td><td>+${f(cost*tariff)}<span class="bdown-sub">= ${f(cost)} × ${tariff.toFixed(4)}</span></td></tr>
+      <tr><td>4. Cost incl. Tariff<span class="bdown-sub">Cost × (1 + T)</span></td><td>${f(costIT)}<span class="bdown-sub">= ${f(cost)} × (1 + ${tariff.toFixed(4)})</span></td></tr>
       <tr><td>${marginRowLabel}</td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginRowSub}</span></td></tr>
-      <tr><td>6. Competitor Reference Price<span class="bdown-sub">comp = Cost × 1.25</span></td><td>${f(comp)}<span class="bdown-sub">= ${f(cost)} × 1.25 = ${f(comp)}</span></td></tr>
-      <tr><td>7. Cost Price<span class="bdown-sub">(Cost × (1+T)) ÷ (1−M)</span></td><td>${f(costPrice)}<span class="bdown-sub">= ${f(cost*(1+tariff))} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice)}</span></td></tr>
-      <tr><td>8. List Price<span class="bdown-sub">${strategyFormula}</span></td><td>${f(priceBeforeDiscount)}<span class="bdown-sub">${stratSub}</span></td></tr>
-      <tr><td>9. Discount<span class="bdown-sub">qty ${qty} ${qty>500?'> 500 → full max discount':'≤ 500 → half max discount'} (${rules.tier}: max ${(rules.max_discount*100).toFixed(0)}%)</span></td><td>−${f(priceBeforeDiscount*discount)}<span class="bdown-sub">= ${f(priceBeforeDiscount)} × ${(discount*100).toFixed(2)}% = −${f(priceBeforeDiscount*discount)}</span></td></tr>
-      <tr><td><strong>10. Final Deal Price</strong></td><td><strong>${f(finalPrice)}</strong><span class="bdown-sub">${f(priceBeforeDiscount)} − ${f(priceBeforeDiscount*discount)} = ${f(finalPrice)}</span></td></tr>`;
+      <tr><td>6. Cost Price<span class="bdown-sub">(Cost × (1+T)) ÷ (1−M)</span></td><td>${f(costPrice)}<span class="bdown-sub">= ${f(costIT)} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice)}</span></td></tr>
+      <tr><td>7. Base Price<span class="bdown-sub">Cost Price × SF × SPF</span></td><td>${f(base)}<span class="bdown-sub">= ${f(costPrice)} × ${sf.toFixed(4)} × ${spf.toFixed(4)} = ${f(base)}</span></td></tr>
+      <tr><td>8. List Price (${rules.strategy})<span class="bdown-sub">${strategyFormula}</span></td><td>${f(priceBeforeDiscount)}<span class="bdown-sub">${stratSub}</span></td></tr>
+      <tr style="background:#f0fdf4"><td><strong>CM% Before Discount</strong></td><td><strong style="color:#059669">${(cmBeforeDisc*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(priceBeforeDiscount)} − ${f(costIT)}) ÷ ${f(priceBeforeDiscount)}</span></td></tr>
+      <tr><td>9. Discount<span class="bdown-sub">qty ${qty} ${qty>500?'> 500 → full max':'≤ 500 → half max'} (${rules.tier}: max ${(rules.max_discount*100).toFixed(0)}%)</span></td><td>−${f(priceBeforeDiscount*discount)}<span class="bdown-sub">= ${f(priceBeforeDiscount)} × ${(discount*100).toFixed(2)}%</span></td></tr>
+      <tr style="background:#f0fdf4"><td><strong>CM% After Discount</strong></td><td><strong style="color:#059669">${(cmAfterDisc*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(finalPrice)} − ${f(costIT)}) ÷ ${f(finalPrice)}</span></td></tr>
+      <tr><td><strong>10. Final Deal Price</strong></td><td><strong>${f(finalPrice)}</strong><span class="bdown-sub">${f(priceBeforeDiscount)} − ${f(priceBeforeDiscount*discount)}</span></td></tr>
+      <tr class="bdown-hdr"><td colspan="2">Tariff Impact Analysis</td></tr>
+      <tr style="background:#fef9ec"><td><strong>Margin Loss</strong><span class="bdown-sub">if price fixed at before-tariff price</span></td><td><strong style="color:#dc2626">${(marginLoss*100).toFixed(2)}%</strong><span class="bdown-sub">CM%(before) − implied margin at before-tariff price with after-tariff cost</span></td></tr>
+      <tr style="background:#fef9ec"><td><strong>Revenue Gap</strong><span class="bdown-sub">price adjusted for tariff</span></td><td><strong style="color:#2563eb">${revenueGap>=0?'+':''}${f(revenueGap)}</strong><span class="bdown-sub">= (${f(finalPrice)} − ${f(finalPrice0)}) × ${qty} units</span></td></tr>`;
 
+    // ── Before Tariff breakdown display ────────────────────────────────────
+    document.getElementById('r-bdown-pre').innerHTML=`
+      <tr class="bdown-hdr"><td colspan="2">Step-by-Step Calculation (Before Tariff — T = 0)</td></tr>
+      <tr><td>1. Client / Segment / Region</td><td style="font-size:11px">${clientName} · ${seg} · ${region}<span class="bdown-sub">Tier: ${rules.tier} — ${rules.strategy}</span></td></tr>
+      <tr><td>2. Base Cost</td><td>${f(cost)}</td></tr>
+      <tr><td>3. Tariff Amount</td><td>$0.00<span class="bdown-sub">T = 0 (excluded)</span></td></tr>
+      <tr><td>4. Cost (no Tariff)</td><td>${f(costIT0)}</td></tr>
+      <tr><td>${marginRowLabel}</td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginRowSub}</span></td></tr>
+      <tr><td>6. Cost Price (no tariff)<span class="bdown-sub">Cost ÷ (1−M)</span></td><td>${f(costPrice0)}<span class="bdown-sub">= ${f(cost)} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice0)}</span></td></tr>
+      <tr><td>7. Base Price<span class="bdown-sub">Cost Price × SF × SPF</span></td><td>${f(base0)}<span class="bdown-sub">= ${f(costPrice0)} × ${sf0.toFixed(4)} × ${spf0.toFixed(4)} = ${f(base0)}</span></td></tr>
+      <tr><td>8. List Price (${rules.strategy})<span class="bdown-sub">${strategyFormula}</span></td><td>${f(preBD0)}<span class="bdown-sub">${stratSub0}</span></td></tr>
+      <tr style="background:#f0fdf4"><td><strong>CM% Before Discount</strong></td><td><strong style="color:#059669">${(cmBD0*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(preBD0)} − ${f(costIT0)}) ÷ ${f(preBD0)}</span></td></tr>
+      <tr><td>9. Discount<span class="bdown-sub">${(discount*100).toFixed(2)}% — same rate as after-tariff</span></td><td>−${f(preBD0*discount)}<span class="bdown-sub">= ${f(preBD0)} × ${(discount*100).toFixed(2)}%</span></td></tr>
+      <tr style="background:#f0fdf4"><td><strong>CM% After Discount</strong></td><td><strong style="color:#059669">${(cmAD0*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(finalPrice0)} − ${f(costIT0)}) ÷ ${f(finalPrice0)}</span></td></tr>
+      <tr><td><strong>10. Final Deal Price (no tariff)</strong></td><td><strong>${f(finalPrice0)}</strong><span class="bdown-sub">${f(preBD0)} − ${f(preBD0*discount)}</span></td></tr>`
     document.getElementById('r-scoreboard').innerHTML=sb.map(s=>{
       const w=Math.min(100,Math.max(0,s.score));
       return `<div class="srow"><span class="slabel">${s.factor}</span><div class="sbar-wrap"><div class="sbar" style="width:${w}%"></div></div><span class="sval2">${s.score}%</span><span class="swhy">${s.why}</span></div>`;
@@ -1396,6 +1508,350 @@ function renderInsightFallback(text){
   return `<div class="ai-action-card"><div class="ai-action-body">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div></div>`;
 }
 
+function showTariffMode(mode){
+  document.getElementById('r-bdown-after').style.display=mode==='after'?'':'none';
+  document.getElementById('r-bdown-before').style.display=mode==='before'?'':'none';
+  document.getElementById('btn-after-tariff').classList.toggle('active',mode==='after');
+  document.getElementById('btn-before-tariff').classList.toggle('active',mode==='before');
+}
+
+// ════════════════════════════════════════════════
+// TARIFF IMPACT TAB
+// ════════════════════════════════════════════════
+const TC={};
+function destroyTC(k){if(TC[k]){TC[k].destroy();delete TC[k];}}
+
+// Compute before-tariff final price for a saved deal (T=0, same margin+discount+strategy)
+function computeBeforeTariffPrice(d){
+  const costIT0=d.cost;
+  const margin=d.margin;
+  const costPrice0=costIT0/(1-margin);
+  const rules=segRules(d.segment);
+  const sf0=getSeasonMult(d.product,d.month);
+  const spf0=getSPF(d.product,d.subgroup,d.region,d.month);
+  const base0=costPrice0*sf0*spf0;
+  const comp0=base0*1.0;
+  let preBD0;
+  if(rules.strategy==='stable')           preBD0=0.7*(d.cost*1.3)+0.3*base0;
+  else if(rules.strategy==='competitive') preBD0=(base0+comp0)/2;
+  else                                    preBD0=base0*1.15;
+  return preBD0*(1-d.discount);
+}
+
+// Compute per-subgroup metrics for a given product from baseline data
+function baselineSubgroupMetrics(prod,rf,sf){
+  const subs=CATALOG[prod]||[];
+  const BASE_MARGIN=0.65;
+  return subs.map(sub=>{
+    const base=getBaseline().filter(r=>
+      r.product===prod&&r.sub===sub&&
+      (rf==='All'||r.region===rf)
+    );
+    const revPost=base.reduce((s,r)=>s+r.ourPrice*r.demand,0);
+    const revPre =base.reduce((s,r)=>s+(r.cost/(1-BASE_MARGIN))*r.demand,0);
+    return {label:sub,revPost,revPre,mAfter:BASE_MARGIN*100,mBefore:BASE_MARGIN*100,mTarget:BASE_MARGIN*100,n:base.length};
+  }).filter(x=>x.n>0);
+}
+
+// Compute per-subgroup metrics from saved deals for a given product
+function dealSubgroupMetrics(prod,rf,sf,deals){
+  const subs=CATALOG[prod]||[];
+  return subs.map(sub=>{
+    const dd=deals.filter(d=>d.product===prod&&d.subgroup===sub);
+    if(!dd.length) return null;
+    const revPost=dd.reduce((s,d)=>s+d.deal_value,0);
+    const revPre =dd.reduce((s,d)=>s+computeBeforeTariffPrice(d)*d.quantity,0);
+    const mAfter =dd.reduce((s,d)=>{const cIT=d.cost*(1+d.tariff);return s+(d.final_price-cIT)/d.final_price;},0)/dd.length*100;
+    const mBefore=dd.reduce((s,d)=>{const p0=computeBeforeTariffPrice(d);return s+(p0-d.cost)/p0;},0)/dd.length*100;
+    const mTarget=dd.reduce((s,d)=>s+segRules(d.segment).margin_target,0)/dd.length*100;
+    return {label:sub,revPost,revPre,mAfter,mBefore,mTarget,n:dd.length};
+  }).filter(x=>x!==null);
+}
+
+function renderTariff(){
+  const src   =document.getElementById('tf-src')?.value||'baseline';
+  const pf    =document.getElementById('tf-prod')?.value||'All';
+  const rf    =document.getElementById('tf-reg')?.value||'All';
+  const sf    =document.getElementById('tf-seg')?.value||'All';
+  const PRODS =Object.keys(CATALOG);
+  const BASE_MARGIN=0.65;
+  const F     ={family:'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',size:11};
+
+  const allDeals=loadDeals();
+  const deals=allDeals.filter(d=>
+    (pf==='All'||d.product===pf)&&
+    (rf==='All'||d.region===rf)&&
+    (sf==='All'||segToTier(d.segment)===sf||d.segment===sf)
+  );
+  const baseRows=getBaseline().filter(r=>
+    (pf==='All'||r.product===pf)&&
+    (rf==='All'||r.region===rf)
+  );
+
+  const empty=document.getElementById('tf-empty');
+  const chartCard=document.querySelector('#tab-tariff .chart-card');
+
+  // ── Build aggregation points ──────────────────────────────────────────────
+  // x-axis: subgroups of selected product (if product selected) OR products (if All)
+  let points=[]; // [{label, revPost, revPre, mAfter, mBefore, mTarget}]
+  let xLabel='';
+
+  if(src==='deals'){
+    if(!deals.length){
+      empty.style.display='block'; if(chartCard) chartCard.style.display='none';
+      destroyTC('dual');
+      document.getElementById('tf-rcount').textContent='0 deals'; return;
+    }
+    empty.style.display='none'; if(chartCard) chartCard.style.display='';
+    document.getElementById('tf-rcount').textContent=deals.length+' deal'+(deals.length!==1?'s':'');
+
+    if(pf!=='All'){
+      // Show subgroups of selected product
+      xLabel='Subgroups of '+pf;
+      points=dealSubgroupMetrics(pf,rf,sf,deals);
+    } else {
+      // Show all products
+      xLabel='by Product';
+      points=PRODS.map(prod=>{
+        const pd=deals.filter(d=>d.product===prod);
+        if(!pd.length) return null;
+        const revPost=pd.reduce((s,d)=>s+d.deal_value,0);
+        const revPre =pd.reduce((s,d)=>s+computeBeforeTariffPrice(d)*d.quantity,0);
+        const mAfter =pd.reduce((s,d)=>{const cIT=d.cost*(1+d.tariff);return s+(d.final_price-cIT)/d.final_price;},0)/pd.length*100;
+        const mBefore=pd.reduce((s,d)=>{const p0=computeBeforeTariffPrice(d);return s+(p0-d.cost)/p0;},0)/pd.length*100;
+        const mTarget=pd.reduce((s,d)=>s+segRules(d.segment).margin_target,0)/pd.length*100;
+        return {label:prod,revPost,revPre,mAfter,mBefore,mTarget};
+      }).filter(x=>x!==null);
+    }
+
+  } else if(src==='baseline'){
+    if(!baseRows.length){ empty.style.display='block'; if(chartCard) chartCard.style.display='none'; destroyTC('dual'); return; }
+    empty.style.display='none'; if(chartCard) chartCard.style.display='';
+
+    if(pf!=='All'){
+      xLabel='Subgroups of '+pf+' (Baseline)';
+      points=baselineSubgroupMetrics(pf,rf,sf);
+    } else {
+      xLabel='by Product (Baseline)';
+      points=PRODS.map(prod=>{
+        const pr=baseRows.filter(r=>r.product===prod);
+        if(!pr.length) return null;
+        return {label:prod,
+          revPost:pr.reduce((s,r)=>s+r.ourPrice*r.demand,0),
+          revPre :pr.reduce((s,r)=>s+(r.cost/(1-BASE_MARGIN))*r.demand,0),
+          mAfter:BASE_MARGIN*100,mBefore:BASE_MARGIN*100,mTarget:BASE_MARGIN*100};
+      }).filter(x=>x!==null);
+    }
+    document.getElementById('tf-rcount').textContent=baseRows.length+' baseline rows';
+
+  } else { // combined
+    if(!baseRows.length){ empty.style.display='block'; if(chartCard) chartCard.style.display='none'; destroyTC('dual'); return; }
+    empty.style.display='none'; if(chartCard) chartCard.style.display='';
+
+    if(pf!=='All'){
+      xLabel='Subgroups of '+pf+' (Baseline + Deals)';
+      const bPts=baselineSubgroupMetrics(pf,rf,sf);
+      const dPts=dealSubgroupMetrics(pf,rf,sf,deals);
+      points=(CATALOG[pf]||[]).map(sub=>{
+        const b=bPts.find(x=>x.label===sub);
+        const d=dPts.find(x=>x.label===sub);
+        if(!b) return null;
+        if(!d) return b;
+        // Weighted blend
+        const bVol=getBaseline().filter(r=>r.product===pf&&r.sub===sub&&(rf==='All'||r.region===rf)).reduce((s,r)=>s+r.demand,0);
+        const dVol=deals.filter(dd=>dd.product===pf&&dd.subgroup===sub).reduce((s,dd)=>s+dd.quantity,0);
+        const tot=bVol+dVol||1;
+        return {label:sub,
+          revPost:b.revPost+d.revPost, revPre:b.revPre+d.revPre,
+          mAfter :(b.mAfter *bVol+d.mAfter *dVol)/tot,
+          mBefore:(b.mBefore*bVol+d.mBefore*dVol)/tot,
+          mTarget:(b.mTarget*bVol+d.mTarget*dVol)/tot};
+      }).filter(x=>x!==null);
+    } else {
+      xLabel='by Product (Baseline + Deals)';
+      points=PRODS.map(prod=>{
+        const pr=baseRows.filter(r=>r.product===prod);
+        if(!pr.length) return null;
+        const bRevPost=pr.reduce((s,r)=>s+r.ourPrice*r.demand,0);
+        const bRevPre =pr.reduce((s,r)=>s+(r.cost/(1-BASE_MARGIN))*r.demand,0);
+        const bVol=pr.reduce((s,r)=>s+r.demand,0);
+        const pd=deals.filter(d=>d.product===prod);
+        if(!pd.length) return {label:prod,revPost:bRevPost,revPre:bRevPre,mAfter:BASE_MARGIN*100,mBefore:BASE_MARGIN*100,mTarget:BASE_MARGIN*100};
+        const dRevPost=pd.reduce((s,d)=>s+d.deal_value,0);
+        const dRevPre =pd.reduce((s,d)=>s+computeBeforeTariffPrice(d)*d.quantity,0);
+        const dVol=pd.reduce((s,d)=>s+d.quantity,0);
+        const dMA=pd.reduce((s,d)=>{const cIT=d.cost*(1+d.tariff);return s+(d.final_price-cIT)/d.final_price;},0)/pd.length*100;
+        const dMB=pd.reduce((s,d)=>{const p0=computeBeforeTariffPrice(d);return s+(p0-d.cost)/p0;},0)/pd.length*100;
+        const dMT=pd.reduce((s,d)=>s+segRules(d.segment).margin_target,0)/pd.length*100;
+        const tot=bVol+dVol||1;
+        return {label:prod,
+          revPost:bRevPost+dRevPost, revPre:bRevPre+dRevPre,
+          mAfter :(BASE_MARGIN*100*bVol+dMA*dVol)/tot,
+          mBefore:(BASE_MARGIN*100*bVol+dMB*dVol)/tot,
+          mTarget:(BASE_MARGIN*100*bVol+dMT*dVol)/tot};
+      }).filter(x=>x!==null);
+    }
+    document.getElementById('tf-rcount').textContent=baseRows.length+' baseline'+(deals.length?' + '+deals.length+' deals':'');
+  }
+
+  document.getElementById('tf-chart-title').textContent='Revenue & Margin — Tariff Impact ('+xLabel+')';
+
+  if(!points.length){
+    empty.style.display='block'; if(chartCard) chartCard.style.display='none';
+    destroyTC('dual'); return;
+  }
+
+  const labels     =points.map(p=>p.label);
+  const revPost    =points.map(p=>+p.revPost.toFixed(0));
+  const revGap     =points.map(p=>+(p.revPost-p.revPre).toFixed(0)); // tariff contribution (gap)
+  const mBefore    =points.map(p=>+p.mBefore.toFixed(2));
+  const mAfter     =points.map(p=>+p.mAfter.toFixed(2));
+  const mTarget    =points.map(p=>+p.mTarget.toFixed(2));
+
+  destroyTC('dual');
+  TC['dual']=new Chart(document.getElementById('tc-dual'),{
+    type:'bar',
+    data:{labels,datasets:[
+      // Revenue bars (left Y) — order:2 so lines render on top
+      {type:'bar',label:'Post-Tariff Revenue',data:revPost,
+        backgroundColor:'#2563eb55',borderColor:'#2563eb',borderWidth:1.5,borderRadius:3,
+        yAxisID:'yRev',order:2},
+      {type:'bar',label:'Tariff Contribution (Gap)',data:revGap,
+        backgroundColor:'#dc262655',borderColor:'#dc2626',borderWidth:1.5,borderRadius:3,
+        yAxisID:'yRev',order:2},
+      // Margin lines (right Y) — order:1 renders above bars
+      {type:'line',label:'Margin Before Tariff (%)',data:mBefore,
+        borderColor:'#2563eb',backgroundColor:'transparent',
+        pointRadius:6,pointBackgroundColor:'#2563eb',pointBorderColor:'white',pointBorderWidth:2,
+        tension:0.3,yAxisID:'yMargin',order:1,borderWidth:3,clip:false},
+      {type:'line',label:'Margin After Tariff (%)',data:mAfter,
+        borderColor:'#dc2626',backgroundColor:'transparent',
+        pointRadius:6,pointBackgroundColor:'#dc2626',pointBorderColor:'white',pointBorderWidth:2,
+        tension:0.3,yAxisID:'yMargin',order:1,borderWidth:3,clip:false},
+      {type:'line',label:'Target Margin (%)',data:mTarget,
+        borderColor:'#059669',backgroundColor:'transparent',
+        pointRadius:6,pointBackgroundColor:'#059669',pointBorderColor:'white',pointBorderWidth:2,
+        borderDash:[6,3],tension:0.3,yAxisID:'yMargin',order:1,borderWidth:2.5,clip:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:12,padding:14,
+          usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{callbacks:{
+          label:c=>c.dataset.yAxisID==='yRev'
+            ?(c.dataset.label+': $'+(c.parsed.y>=1e6?(c.parsed.y/1e6).toFixed(2)+'M':(c.parsed.y/1000).toFixed(1)+'K'))
+            :(c.dataset.label+': '+c.parsed.y.toFixed(1)+'%')
+        }}
+      },
+      scales:{
+        yRev:{type:'linear',position:'left',
+          grid:{color:'#f3f4f6'},
+          ticks:{font:F,color:'#2563eb',callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1000).toFixed(0)+'K')},
+          title:{display:true,text:'Revenue ($)',color:'#2563eb',font:{size:11,weight:'bold'}}},
+        yMargin:{type:'linear',position:'right',display:true,min:0,max:100,
+          grid:{display:false},
+          ticks:{font:F,color:'#6b7280',callback:v=>v+'%'},
+          title:{display:true,text:'Margin (%)',color:'#6b7280',font:{size:11,weight:'bold'}}},
+        x:{grid:{display:false},
+          ticks:{font:F,color:'#374151',maxRotation:30}}
+      }
+    }
+  });
+
+  // ── Scatter: Tariff Performance vs Margin Exposure ────────────────────────
+  destroyTC('scatter');
+  const PROD_COLORS_S={
+    'Smartphone':'#2563eb','Laptop':'#7c3aed','TV':'#059669',
+    'Air Conditioner':'#f59e0b','Accessory':'#dc2626','Networking Equipment':'#0f2942'
+  };
+  const scatterPts=[];
+  const getMLoss=(tariffRate,cost,finalP0)=>{
+    const impliedM=(finalP0-cost*(1+tariffRate))/finalP0;
+    const mBefore=(finalP0-cost)/finalP0;
+    return (mBefore-impliedM)*100;
+  };
+
+  if(src==='deals'&&deals.length){
+    deals.forEach(d=>{
+      const p0=computeBeforeTariffPrice(d);
+      const ml=getMLoss(d.tariff,d.cost,p0);
+      scatterPts.push({x:+(d.tariff*100).toFixed(2),y:+ml.toFixed(2),
+        prod:d.product,sub:d.subgroup,rev:d.deal_value,
+        lbl:d.product+' '+d.subgroup+' ('+d.customer+')'});
+    });
+  } else {
+    const activeRegions=rf==='All'?['N_AMERICA','EMENA','APAC','CIS']:[rf];
+    const activeProds=pf==='All'?PRODS:[pf];
+    activeProds.forEach(prod=>{
+      (CATALOG[prod]||[]).forEach(sub=>{
+        activeRegions.forEach(reg=>{
+          const tariffRate=getTariff(reg,prod,sub);
+          const cost=getCost(prod,sub);
+          const sf7=getSeasonMult(prod,7,sub,reg);
+          const spf7=getSPF(prod,sub,reg,7);
+          const cp0=cost/(1-0.65);
+          const b0=cp0*sf7*spf7;
+          const p0=b0; // competitive: (b0+b0)/2 = b0
+          const ml=getMLoss(tariffRate,cost,p0);
+          const baseRow=getBaseline().find(r=>r.product===prod&&r.sub===sub&&r.region===reg);
+          const rev=baseRow?baseRow.ourPrice*baseRow.demand:0;
+          scatterPts.push({x:+(tariffRate*100).toFixed(2),y:+ml.toFixed(2),
+            prod,sub,rev,lbl:prod+' '+sub+' ('+reg+')'});
+        });
+      });
+    });
+  }
+
+  if(!scatterPts.length){destroyTC('scatter');}
+  else{
+    const maxRev=Math.max(...scatterPts.map(p=>p.rev),1);
+    const avgT=scatterPts.reduce((s,p)=>s+p.x,0)/scatterPts.length;
+    const avgML=scatterPts.reduce((s,p)=>s+p.y,0)/scatterPts.length;
+    const byProdS={};
+    scatterPts.forEach(pt=>{
+      if(!byProdS[pt.prod]) byProdS[pt.prod]=[];
+      byProdS[pt.prod].push({x:pt.x,y:pt.y,r:Math.max(6,Math.min(26,(pt.rev/maxRev)*26+5)),_lbl:pt.lbl});
+    });
+    const ds=Object.entries(byProdS).map(([prod,pts])=>({
+      label:prod,data:pts,type:'bubble',
+      backgroundColor:(PROD_COLORS_S[prod]||'#6b7280')+'99',
+      borderColor:PROD_COLORS_S[prod]||'#6b7280',borderWidth:1.5
+    }));
+    // Quadrant lines
+    const xMax=Math.max(...scatterPts.map(p=>p.x))+5;
+    const yMax=Math.max(...scatterPts.map(p=>p.y))+5;
+    ds.push(
+      {label:'Avg Tariff ↕',data:[{x:avgT,y:-2},{x:avgT,y:yMax}],type:'line',
+        borderColor:'#9ca3af66',borderWidth:1.5,borderDash:[5,4],pointRadius:0,backgroundColor:'transparent',showLine:true},
+      {label:'Avg Margin Loss →',data:[{x:0,y:avgML},{x:xMax,y:avgML}],type:'line',
+        borderColor:'#f59e0b88',borderWidth:1.5,borderDash:[5,4],pointRadius:0,backgroundColor:'transparent',showLine:true}
+    );
+    destroyTC('scatter');
+    TC['scatter']=new Chart(document.getElementById('tc-scatter'),{
+      type:'scatter',
+      data:{datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{font:F,color:'#374151',boxWidth:10,padding:10,
+            filter:item=>!item.text.startsWith('Avg ')}},
+          tooltip:{callbacks:{label:c=>{
+            const d=c.raw;
+            return (d._lbl||c.dataset.label)+': Tariff '+c.parsed.x.toFixed(1)+'%, Margin Loss '+c.parsed.y.toFixed(1)+'%';
+          }}}
+        },
+        scales:{
+          x:{title:{display:true,text:'Tariff Rate (%)',color:'#374151',font:{size:11,weight:'bold'}},
+            min:0,grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}},
+          y:{title:{display:true,text:'Margin Loss if Price Not Adjusted (%)',color:'#dc2626',font:{size:11,weight:'bold'}},
+            min:0,grid:{color:'#f3f4f6'},ticks:{font:F,color:'#6b7280',callback:v=>v+'%'}}
+        }
+      }
+    });
+  }
+}
+
 // ════════════════════════════════════════════════
 // FORM INTERACTIONS
 // ════════════════════════════════════════════════
@@ -1471,6 +1927,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   if(tab==='dashboard') renderDash();
+  if(tab==='tariff') renderTariff();
 }
 
 // ════════════════════════════════════════════════
