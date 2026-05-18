@@ -174,7 +174,14 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
 .btn-tariff.active{background:#0f2942;color:white;border-color:#0f2942}
 .btn-tariff:hover:not(.active){background:#e5e9f0}
 .btn-legend:hover{background:#e5e9f0}
-.legend-panel{background:#f8fafc;border:1px solid #e5e9f0;border-radius:6px;padding:12px 14px;margin-bottom:10px;font-size:12px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:white;border-radius:10px;width:min(600px,92vw);max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25)}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #e5e9f0;position:sticky;top:0;background:white;z-index:1}
+.modal-title{font-size:13px;font-weight:700;color:#0f2942}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:#6b7280;line-height:1;padding:2px 6px}
+.modal-close:hover{color:#0f2942}
+.modal-body{padding:0}
 .legend-panel table{width:100%;border-collapse:collapse}
 .legend-panel td{padding:5px 8px;border-bottom:1px solid #f0f2f5;vertical-align:top}
 .legend-panel td:first-child{font-weight:600;color:#0f2942;width:38%;white-space:nowrap}
@@ -377,7 +384,6 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
           <div class="r-section">
             <h3>AI Explanation (Gemini 2.5 Flash)</h3>
             <button class="btn-ai" id="btn-explain" onclick="generateExplanation()">✦ Generate AI Explanation</button>
-            <div class="ai-box" id="r-ai" style="display:none"></div>
           </div>
           <div class="r-section" style="border-top:2px solid #e5e9f0;padding-top:14px">
             <button id="btn-save-deal" onclick="saveDealFromResults()" style="width:100%;padding:11px;background:#059669;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">💾 Save Deal to Dashboard</button>
@@ -535,6 +541,19 @@ tbody tr.deal-selectable:hover td{background:#f9fafb}
   </div>
 
 </div><!-- end .main -->
+
+<!-- AI Explanation Modal -->
+<div class="modal-overlay" id="ai-modal" onclick="if(event.target===this)closeAiModal()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <span class="modal-title">✦ AI Explanation — Price Drivers</span>
+      <button class="modal-close" onclick="closeAiModal()">✕</button>
+    </div>
+    <div class="modal-body" id="ai-modal-body">
+      <div class="ai-box" id="r-ai" style="border:none;border-radius:0"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ════════════════════════════════════════════════
@@ -823,12 +842,12 @@ function dynamicPrice(row,predMargin){
   const costPrice=(row.cost*(1+row.tariff))/(1-margin);
   const sf=getSeasonMult(row.prod,row.month,row.sub,row.region);
   const spf=getSPF(row.prod,row.sub,row.region,row.month);
-  const base=costPrice*sf*spf;
-  const comp=base*1.0; // notebook: base * (1 + random(-0.03,0.03)); deterministic midpoint = base * 1.0
+  const base=costPrice; // Base Price = Cost Price (no SF×SPF applied to price)
+  const comp=base*1.0;
   let price;
-  if(rules.strategy==="stable")       price=0.7*(row.cost*1.3)+0.3*base;
+  if(rules.strategy==="stable")          price=0.7*(row.cost*1.3)+0.3*base;
   else if(rules.strategy==="competitive") price=(base+comp)/2;
-  else                                price=base*1.15;
+  else                                    price=base*1.15;
   return {price,margin,costPrice,base,sf,spf,comp};
 }
 
@@ -1117,13 +1136,13 @@ function computePrice(){
     // Strategy labels — strategy uses Base Price (costPrice * sf * spf), not costPrice
     let strategyFormula='', stratSub='';
     if(rules.strategy==='stable'){
-      strategyFormula=`Stable: 0.7 × (Cost × 1.3) + 0.3 × Base Price`;
+      strategyFormula=`Stable: 0.7 × (Cost × 1.3) + 0.3 × Cost Price`;
       stratSub=`= 0.7 × ${f(cost*1.3)} + 0.3 × ${f(base)} = ${f(priceBeforeDiscount)}`;
     } else if(rules.strategy==='competitive'){
-      strategyFormula=`Competitive: (Base Price + comp) ÷ 2`;
+      strategyFormula=`Competitive: (Cost Price + comp) ÷ 2`;
       stratSub=`= (${f(base)} + ${f(comp)}) ÷ 2 = ${f(priceBeforeDiscount)}`;
     } else {
-      strategyFormula=`High-price: Base Price × 1.15`;
+      strategyFormula=`High-price: Cost Price × 1.15`;
       stratSub=`= ${f(base)} × 1.15 = ${f(priceBeforeDiscount)}`;
     }
 
@@ -1135,7 +1154,6 @@ function computePrice(){
       <tr class="bdown-def"><td>SF<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— season factor</span></td><td>${sf.toFixed(4)}<span class="bdown-sub">${getSeason(month)} demand multiplier for ${prod}</span></td></tr>
       <tr class="bdown-def"><td>SPF<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— sales pressure factor</span></td><td>${spf.toFixed(4)}<span class="bdown-sub">monthly demand pressure (0.9–1.1), month ${month}</span></td></tr>
       <tr class="bdown-def"><td>Cost Price<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— margin-derived floor</span></td><td>${f(costPrice)}<span class="bdown-sub">see step 6 below</span></td></tr>
-      <tr class="bdown-def"><td>Base Price<span style="font-weight:400;font-size:10px;color:#6b7280;margin-left:4px">— season+pressure adjusted</span></td><td>${f(base)}<span class="bdown-sub">Cost Price × SF × SPF</span></td></tr>
 
       <tr class="bdown-hdr"><td colspan="2">Step-by-Step Calculation (After Tariff)</td></tr>
       <tr><td>1. Client / Segment / Region</td><td style="font-size:11px">${clientName} · ${seg} · ${region}<span class="bdown-sub">Tier: ${rules.tier} — ${rules.strategy}</span></td></tr>
@@ -1144,7 +1162,6 @@ function computePrice(){
       <tr><td>4. Cost incl. Tariff<span class="bdown-sub">Cost × (1 + T)</span></td><td>${f(costIT)}<span class="bdown-sub">= ${f(cost)} × (1 + ${tariff.toFixed(4)})</span></td></tr>
       <tr><td>${marginRowLabel}</td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginRowSub}</span></td></tr>
       <tr><td>6. Cost Price<span class="bdown-sub">(Cost × (1+T)) ÷ (1−M)</span></td><td>${f(costPrice)}<span class="bdown-sub">= ${f(costIT)} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice)}</span></td></tr>
-      <tr><td>7. Base Price<span class="bdown-sub">Cost Price × SF × SPF</span></td><td>${f(base)}<span class="bdown-sub">= ${f(costPrice)} × ${sf.toFixed(4)} × ${spf.toFixed(4)} = ${f(base)}</span></td></tr>
       <tr><td>8. List Price (${rules.strategy})<span class="bdown-sub">${strategyFormula}</span></td><td>${f(priceBeforeDiscount)}<span class="bdown-sub">${stratSub}</span></td></tr>
       <tr style="background:#f0fdf4"><td><strong>CM% Before Discount</strong></td><td><strong style="color:#059669">${(cmBeforeDisc*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(priceBeforeDiscount)} − ${f(costIT)}) ÷ ${f(priceBeforeDiscount)}</span></td></tr>
       <tr><td>9. Discount<span class="bdown-sub">qty ${qty} ${qty>500?'> 500 → full max':'≤ 500 → half max'} (${rules.tier}: max ${(rules.max_discount*100).toFixed(0)}%)</span></td><td>−${f(priceBeforeDiscount*discount)}<span class="bdown-sub">= ${f(priceBeforeDiscount)} × ${(discount*100).toFixed(2)}%</span></td></tr>
@@ -1163,7 +1180,6 @@ function computePrice(){
       <tr><td>4. Cost (no Tariff)</td><td>${f(costIT0)}</td></tr>
       <tr><td>${marginRowLabel}</td><td>${(margin*100).toFixed(2)}%<span class="bdown-sub">${marginRowSub}</span></td></tr>
       <tr><td>6. Cost Price (no tariff)<span class="bdown-sub">Cost ÷ (1−M)</span></td><td>${f(costPrice0)}<span class="bdown-sub">= ${f(cost)} ÷ (1 − ${margin.toFixed(4)}) = ${f(costPrice0)}</span></td></tr>
-      <tr><td>7. Base Price<span class="bdown-sub">Cost Price × SF × SPF</span></td><td>${f(base0)}<span class="bdown-sub">= ${f(costPrice0)} × ${sf0.toFixed(4)} × ${spf0.toFixed(4)} = ${f(base0)}</span></td></tr>
       <tr><td>8. List Price (${rules.strategy})<span class="bdown-sub">${strategyFormula}</span></td><td>${f(preBD0)}<span class="bdown-sub">${stratSub0}</span></td></tr>
       <tr style="background:#f0fdf4"><td><strong>CM% Before Discount</strong></td><td><strong style="color:#059669">${(cmBD0*100).toFixed(1)}%</strong><span class="bdown-sub">= (${f(preBD0)} − ${f(costIT0)}) ÷ ${f(preBD0)}</span></td></tr>
       <tr><td>9. Discount<span class="bdown-sub">${(discount*100).toFixed(2)}% — same rate as after-tariff</span></td><td>−${f(preBD0*discount)}<span class="bdown-sub">= ${f(preBD0)} × ${(discount*100).toFixed(2)}%</span></td></tr>
@@ -1194,38 +1210,60 @@ function computePrice(){
 // ════════════════════════════════════════════════
 // AI EXPLANATION — exact prompt from notebook's explain()
 // ════════════════════════════════════════════════
-async function generateExplanation(){
-  if(!lastState) return;
+function openAiModal(){ document.getElementById('ai-modal').classList.add('open'); }
+function closeAiModal(){ document.getElementById('ai-modal').classList.remove('open'); }
+
+function generateExplanation(){
+  if(!lastState){alert('Please compute a price first.');return;}
   const {row,finalPrice,discount,margin,costPrice,base,comp,sf,spf,season,neg,rules}=lastState;
+  const f=v=>'$'+v.toFixed(2);
+  const p=v=>(v*100).toFixed(1)+'%';
   const btn=document.getElementById('btn-explain');
   const box=document.getElementById('r-ai');
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Asking Gemini 2.5 Flash...';
-  box.style.display='block'; box.textContent='Generating explanation...';
 
-  const prompt=`You are a pricing analyst. Given this deal, identify the TOP 3 factors driving the final price and write a brief 2-sentence conclusion.
+  const costIT=row.cost*(1+row.tariff);
+  const cmAfter=((finalPrice-costIT)/finalPrice*100).toFixed(1);
+  const tariffImpact=row.cost*row.tariff;
+  const listPrice=finalPrice/(1-discount);
 
-Product: ${row.prod} (${row.sub}) | Region: ${row.region} | Segment: ${row.seg} | Tier: ${rules.tier}
-Cost: $${row.cost.toFixed(2)} | Tariff: ${(row.tariff*100).toFixed(1)}% | Elasticity: ${row.elasticity.toFixed(2)}
-Inventory: ${row.inv} units | Qty: ${row.qty} | Season Factor: ${sf.toFixed(2)} | SPF: ${spf.toFixed(2)}
-Margin Used: ${(margin*100).toFixed(1)}% (${row.marginOverridden?'override':'model'}) | Strategy: ${rules.strategy}
-Competitor Price: $${comp.toFixed(2)} | Final Price: $${finalPrice.toFixed(2)} | Discount: ${(discount*100).toFixed(1)}%
+  const factors=[
+    {name:'Cost Base',
+     impact:`The base catalog cost of ${f(row.cost)} for ${row.prod} (${row.sub}) is the foundation — it determines the Cost Price floor before any adjustment.`,
+     delta:row.cost},
+    {name:'Tariff ('+p(row.tariff)+')',
+     impact:`A ${(row.tariff*100).toFixed(1)}% tariff (${row.region}) adds ${f(tariffImpact)} to the landed cost, raising it from ${f(row.cost)} to ${f(costIT)}.`,
+     delta:tariffImpact},
+    {name:'Margin ('+p(margin)+')',
+     impact:`The ${(margin*100).toFixed(1)}% margin (${row.marginOverridden?'manually overridden':'model-predicted, clamped to '+rules.tier+' tier'}) converts landed cost ${f(costIT)} into Cost Price ${f(costPrice)}.`,
+     delta:costPrice-costIT},
+    {name:'Strategy: '+rules.strategy,
+     impact:`The ${rules.strategy} strategy (${rules.tier} segment) sets the List Price at ${f(listPrice)} — ${rules.strategy==='competitive'?'midpoint of Cost Price and competitor':'applied directly on Cost Price'}.`,
+     delta:Math.abs(costPrice-listPrice)},
+    {name:'Discount ('+p(discount)+')',
+     impact:`A ${(discount*100).toFixed(1)}% discount (qty ${row.qty} ${row.qty>500?'> 500, full max':'≤ 500, half max'} for ${rules.tier} tier) reduces the price by ${f(listPrice*discount)}.`,
+     delta:listPrice*discount},
+    {name:'Elasticity ('+row.elasticity.toFixed(2)+')',
+     impact:`Elasticity of ${row.elasticity.toFixed(2)} for this SKU signals ${Math.abs(row.elasticity)>1.5?'high price sensitivity — demand drops sharply with price rises':'moderate sensitivity — some pricing flexibility exists'}.`,
+     delta:Math.abs(row.elasticity)*5},
+  ].sort((a,b)=>b.delta-a.delta).slice(0,3);
 
-Format:
-**Top Cost Drivers:**
-1. [Factor]: [1 sentence explanation with numbers]
-2. [Factor]: [1 sentence explanation with numbers]
-3. [Factor]: [1 sentence explanation with numbers]
+  const topFactor=factors[0].name;
+  const conclusion=topFactor.includes('Cost')
+    ?`The product cost structure is the primary driver, with the ${row.region} tariff adding ${(row.tariff*100).toFixed(1)}% on top. At ${f(finalPrice)}, this deal achieves a ${cmAfter}% gross margin — ${parseFloat(cmAfter)>=(rules.margin_target*100)?'meeting':'approaching'} the ${rules.tier} tier target.`
+    :topFactor.includes('Tariff')
+    ?`The ${(row.tariff*100).toFixed(1)}% tariff in ${row.region} is the dominant cost driver, adding ${f(tariffImpact)} to the base. The final price of ${f(finalPrice)} preserves a ${cmAfter}% margin — consider tariff-optimised routing for future orders.`
+    :topFactor.includes('Margin')
+    ?`The ${(margin*100).toFixed(1)}% margin (${row.marginOverridden?'manual override':'model-predicted'}) is the key lever, producing a Cost Price of ${f(costPrice)}. The final price of ${f(finalPrice)} after ${(discount*100).toFixed(1)}% discount delivers ${cmAfter}% gross margin.`
+    :`The ${rules.strategy} strategy and ${(discount*100).toFixed(1)}% discount shape the final price of ${f(finalPrice)}. The deal achieves ${cmAfter}% gross margin, within the ${rules.tier} tier range of ${(rules.margin_min*100).toFixed(0)}%–${(rules.margin_target*100).toFixed(0)}%.`;
 
-**Conclusion:** [2 sentences: pricing outcome + recommendation]`;
+  const colors=['#0f2942','#2563eb','#059669'];
+  box.innerHTML=`<div class="ai-explain-card">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:8px">Top Contributing Factors → Final Deal Price ${f(finalPrice)}</div>
+    ${factors.map((fc,i)=>`<div class="ai-driver"><div class="ai-driver-rank" style="background:${colors[i]}">${i+1}</div><div class="ai-driver-text"><span class="ai-driver-label">${fc.name}</span> — ${fc.impact}</div></div>`).join('')}
+  </div><div class="ai-conclusion"><strong>▶ Conclusion</strong> — ${conclusion}</div>`;
 
-  try {
-    const text=await callGemini(prompt);
-    // Parse structured response into visual cards
-    box.innerHTML=renderExplainCards(text);
-  } catch(e) {
-    box.innerHTML=`<div style="padding:12px;color:#dc2626;font-size:12px">⚠ Gemini error: ${e.message}</div>`;
-  }
-  btn.disabled=false; btn.innerHTML='✦ Regenerate AI Explanation';
+  openAiModal();
+  btn.innerHTML='✦ Generate AI Explanation';
 }
 
 function renderExplainCards(text){
